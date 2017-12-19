@@ -1,55 +1,42 @@
 <?php
 
-class log {
+class log
+{
 
-	var $logfile = "";
+	//public function log($logfile) {
+	function __construct($logfile) {
 
-	function log($logfile) {
-
-		if(!is_dir($logfile["directory"])) {
-			@mkdir($logfile["directory"], 0755);
-		}
-
-		$this->logfile = $logfile["directory"]."/".$logfile["server_pre"]."_".date("Y_m_d",time()).".".$logfile["extension"];
-
-		@fopen($this->logfile, "ab");
+		$this->logfile = $logfile[directory]."/".$logfile[server_pre]."_".date("Y_m_d",time()).".".$logfile[extension];
+		@fopen($this->logfile,"w+");
 
 	}
 
-	function header($msg) {
+	public function header($msg) {
 
 		$temp = "WRITE: ".str_replace("\n","\r\n",$msg);
-
 		return $temp;
 
 	}
 
-	function msg($msg, $stop=false, $print=true) {
+	public function msg($msg,$stop=false,$print=true) {
 
-		$open = @fopen($this->logfile, "ab");
+		$open = @fopen($this->logfile,"a");
 
 		if($open) {
 
-			fwrite($open, $msg);
+			fwrite($open,$msg);
 			fclose($open);
-
 		} else {
-
 			die("ERROR (".date("d.m.Y H:i:s",time())."): logfile doesn't exist");
-
 		}
 
-		if($print) {
-			print trim($msg)."\n";
-		}
+		if($print) print trim($msg)."\n";
 
 		if($stop) {
 
-			$this->msg("SERVER (".date("d.m.Y H:i:s",time())."): Server stopped ...\r\n");
+			$this->msg("\r\nSERVER (".date("d.m.Y H:i:s",time())."): Server stopped ...");
 			exit;
-
 		}
-
 	}
 
 }

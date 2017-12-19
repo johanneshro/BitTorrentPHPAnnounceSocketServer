@@ -3,28 +3,27 @@ ob_implicit_flush();
 set_time_limit(0);
 ini_set('max_execution_time','0');
 
-define("INTERVAL", 1800);
-define("INTERVAL_MIN", 300);
-define("CLIENT_TIMEOUT", 60);
-
 include("config.php");
+
+// mysql
+$db_connect = @mysql_pconnect($db["server"],$db["user"],$db["passwd"]);
+@mysql_select_db($db["name"],$db_connect);
+
+if(!$db_connect)
+	$server["running"] = false;
+
 include("functions.php");
-include("classes.php");
-include("../../comments/inc/class.arraytotexttable.inc.php");
+require_once("classes.php");
 
 $log = new log($logfile);
 $sock = start_server();
-
+$plugins_loaded = array();
+$include = load_plugins();
 $files = files();
 $client = array();
-$response = array();
-
-$db = array();
-$db["torrents"] = array();
-$db["info_hash"] = array();
-
 $started = time();
 $hits = 0;
+$response = array();
 
 while($server["running"]) {
 
@@ -58,26 +57,23 @@ while($server["running"]) {
 				} else {
 
 					@socket_set_option($client[$i]['sock'], SOL_SOCKET, SO_REUSEADDR, 1);
-					@socket_getpeername($client[$i]['sock'], $ip, $port);
+					@socket_getpeername($client[$i]['sock'], $getip, $getport);
 
-					$log->msg("CLIENT (".date("d.m.Y H:i:s",time())."): New Client #".$i." connected: ".$ip.":".$port."\r\n");
+					$log->msg("\r\nCLIENT (".date("d.m.Y H:i:s",time())."): New Client #".$i." connected: ".$getip.":".$getport);
 
 					$hits++;
 
 				}
-
 				break;
-
 			}
 			elseif($i == $server["max_clients"] - 1) {
-
-				track_print($client[$i]['sock'], "Too many Clients!");
-
+				benc_resp_raw($client[$i]['sock'],"Too many Clients!");
 			}
 
 		}
 
-		if(--$ready <= 0) continue;
+if(--$ready <= 0)
+continue;
 
 	}
 
@@ -88,64 +84,68 @@ while($server["running"]) {
 			$input = @socket_read($client[$i]['sock'], 1024);
 
 			if($input == null) {
-
 				@socket_close($client[$i]['sock']);
-
 				unset($client[$i]['sock']);
 				unset($client[$i]);
-
 			}
 
 			$input = trim($input);
 
-			$split = explode("\n", $input);
-			preg_match("=([a-z]{1,} /)(.*)( http/1.[01]{1})=i", $split[0], $temp);
+			$split = split("\n",$input);
+			preg_match("=([a-z]{1,} /)(.*)( http/1.[01]{1})=i",$split[0],$temp);
 
 			$split_2 = http_parse_headers($input);
-			$split_status = explode(" ", $split_2["status"]);
+			$split_status = explode(" ",$split_2["status"]);
 
 			$_GET = parse_query_string($split_status[1]);
 			$method = trim($split_status[0]);
 			$useragent = trim($split_2["User-Agent"]);
 
-			if($method != "GET") track_print($client[$i]['sock'], "Fertig!");
+			if($method != "GET")
+				benc_resp_raw($client[$i]['sock'],"Fertig!");
+
+			ctracker($client[$i]['sock'],$split_status[1]);
+
+			if($plugins_loaded["floodprotect"]) {
+
+				$protect = new FloodProtect();
+				$protect -> maxConPerMin = $floodprotect["maxConPerMin"];
+				$protect -> bantime      = $floodprotect["bantime"];
+				$protect -> check();
+
+			}
 
 			if(count($_GET) > 0) {
 
 				$log_get = @fopen($logfile["directory"]."/".$logfile["request_pre"]."_".date("Y_m_d",time()).".".$logfile[extension],"a");
 
 				if($log_get) {
-
 					@fwrite($log_get,var_export($_GET,true)."\n");
 					@fclose($log_get);
-
 				}
 
 			}
 
 			if(substr($split_status[1],0,6) == "/files") {
 
-				$file = $_GET["file"];
+				$file = $_GET[file];
 
 				if(!$file) {
 
-					$log->msg("CLIENT (".date("d.m.Y H:i:s",time())."): Request -> ! -> Output -> index.html\r\n");
-
-					track_print($client[$i]['sock'], $files["index.html"], "text/html");
+					$log->msg("\r\nCLIENT (".date("d.m.Y H:i:s",time())."): Request -> ! -> Output -> index.html");
+					benc_resp_raw($client[$i]['sock'],$files["index.html"]);
 
 				} else {
 
 					if(count($files[$file]) > 0) {
 
-						$log->msg("CLIENT (".date("d.m.Y H:i:s",time())."): Request -> ".$file." -> Output -> ".$file."\r\n");
-
-						track_print($client[$i]['sock'], $files[$file], "text/html");
+						$log->msg("\r\nCLIENT (".date("d.m.Y H:i:s",time())."): Request -> ".$file." -> Output -> ".$file);
+						benc_resp_raw($client[$i]['sock'],$files[$file]);
 
 					} else {
 
-						$log->msg("CLIENT (".date("d.m.Y H:i:s",time())."): Request -> ".$file." -> Output -> 404.html\r\n");
-
-						track_print($client[$i]['sock'], $files["404.html"], "text/html");
+						$log->msg("\r\nCLIENT (".date("d.m.Y H:i:s",time())."): Request -> ".$file." -> Output -> 404.html");
+						benc_resp_raw($client[$i]['sock'],$files["404.html"]);
 
 					}
 
@@ -154,235 +154,350 @@ while($server["running"]) {
 			}
 			elseif(substr($split_status[1],0,7) == "/status") {
 
-				track_print($client[$i]['sock'], "Started: ".date("d.m.Y H:i:s",$started)."\nHits: ".$hits."\nClients: ".count($client));
+				benc_resp_raw($client[$i]['sock'],"Started: ".date("d.m.Y H:i:s",$started)."<br>Hits: ".$hits."<br>Clients: ".count($client));
+
+			}
+			elseif(substr($split_status[1],0,7) == "/update") {
+
+				if(trim($_GET["admin"]) == $server["admin"]) {
+
+					$is_update = checkupdate();
+
+					if(!$is_update) {
+						$is_update = "Version: ".release()."<br>Es stehen keine Updates zur Verfügung!<br>Das Produkt ist auf dem neuesten Stand!";
+					}
+
+					benc_resp_raw($client[$i]['sock'],$is_update);
+
+				} else {
+					benc_resp_raw($client[$i]['sock'],"Kein Zugriff!");
+				}
 
 			}
 			elseif(substr($split_status[1],0,8) == "/clients") {
 
-				$clients = array();
-
-				foreach($client AS $key => $client_user) {
+				foreach($client as $key => $client_user) {
 
 					if($client_user['sock'] != null) {
-
-						@socket_getpeername($client_user['sock'], $client_ip, $client_port);
-
-						$clients[] = $client_ip.":".$client_port;
-
+						@socket_getpeername($client_user['sock'],$client_ip,$client_port);
+						$client_list .= "<br>".$client_ip.":".$client_port;
 					}
 
 				}
 
-				track_print($client[$i]['sock'], @implode("\n", $clients));
+				benc_resp_raw($client[$i]['sock'],"Client List:".$client_list);
 
-				unset($clients);
+				unset($client_list);
+
+			}
+			elseif(substr($split_status[1],0,8) == "/plugins") {
+
+				if(count($plugins_loaded) > 0) {
+
+					foreach($plugins_loaded as $plugin_loaded) {
+						$plugin_list .= "<br>".$plugin_loaded;
+					}
+
+				} else {
+					$plugin_list = "<br>Keine";
+				}
+
+				foreach($plugins as $plug_value => $plug_ins) {
+					$plugins_list .= "<br>".$plug_value;
+				}
+
+				benc_resp_raw($client[$i]['sock'],"Geladene Plugins:".$plugin_list."<br><br>Verfügbare Plugins: ".$plugins_list);
+
+				unset($plugin_list);
+				unset($plugins_list);
+
+			}
+			elseif(substr($split_status[1],0,10) == "/clientban") {
+
+				if($plugins_loaded["clientban"]) {
+
+					$client_whitelist = array();
+					$client_blacklist = array();
+
+					$client_output = "<table>
+					<tr valign=\"top\">
+					<td><b>Erlaubte Clients</b></td><td><b>Gebannte Clients</b></td>
+					</tr>\n";
+
+					// mysql
+        			$query_clients = mysql_query("SELECT * FROM agents ORDER BY agent_name DESC");
+
+        			while($result_clients = mysql_fetch_array($query_clients)) {
+            			$client_list[] = $result_clients;
+        			}
+
+        			foreach($client_list as $clientlist) {
+
+        				if($clientlist["aktiv"] > 0) {
+        					$client_whitelist[] = $clientlist;
+        				} else {
+        					$client_blacklist[] = $clientlist;
+        				}
+
+        			}
+
+        			$client_output .= "<tr valign=\"top\">
+					<td>".@implode("<br>\n",$client_whitelist)."</td><td>".@implode("<br>\n",$client_blacklist)."</td>
+					</tr>
+					</table>";
+
+					unset($client_output);
+
+				} else {
+					benc_resp_raw($client[$i]['sock'],"Plugin nicht geladen!");
+				}
+
+				benc_resp_raw($client[$i]['sock'],"Client List:".$client_list);
 
 			}
 			elseif(substr($split_status[1],0,5) == "/kill") {
 
-				if(trim($_GET["admin"]) == $server["admin"]) {
-
-					track_print($client[$i]['sock'], "OK!");
-
-					stop_server($sock, $client, $key);
-
-				} else {
-
-					track_print($client[$i]['sock'], "Kein Zugriff!");
-
-				}
+				if(trim($_GET["admin"]) == $server["admin"])
+					stop_server($sock,$client,$key);
+				else
+					benc_resp_raw($client[$i]['sock'],"Kein Zugriff!");
 
 			}
-			elseif(substr($split_status[1],0,3) == "/db") {
+			elseif(substr($split_status[1],0,7) == "/scrape") {
 
-				if(trim($_GET["admin"]) == $server["admin"]) {
+				$info_hash = $_GET["info_hash"];
+				$passkey = $_GET["passkey"];
 
-					$data = array();
+				if(preg_match("/^Mozilla/", $useragent) || preg_match("/^MSIE/", $agent) || preg_match("/^Opera/", $useragent) || preg_match("/^Links/", $useragent) || preg_match("/^Lynx/", $useragent) || preg_match("/^curl/", $useragent) || preg_match("/^php/", $useragent)) {
+					benc_resp_raw($client[$i]['sock'],"Du benutzt einen ungültigen Client!");
+				}
+				elseif(checkpasskey($passkey) == "0")
+					err($client[$i]['sock'], "Ungueltiger PassKey (".strlen($passkey)." - $passkey). Re-Download the .torrent");
 
-					$z = 0;
-					if(count($db["torrents"]) > 0) {
+				$fields = "name, info_hash, times_completed, seeders, leechers";
 
-						foreach($db["torrents"] AS $info_hash) {
+				// mysql
+				if(!isset($info_hash))
+					$query = mysql_query("SELECT $fields FROM torrents ORDER BY 'info_hash'");
+				else
+					$query = mysql_query("SELECT $fields FROM torrents WHERE info_hash='".mysql_real_escape_string($info_hash)."' LIMIT 1");
 
-							if(count($db[$info_hash]) > 0) {
+				$r = "d" . benc_str("files") . "d";
 
-								foreach($db[$info_hash] AS $peer_id) {
+				while($result = mysql_fetch_assoc($query)) {
 
-									$map = $info_hash.":".$peer_id;
+					$r .= "20:" . hash_pad($result["info_hash"]) . "d" .benc_str("complete") . "i" . $result["seeders"] . "e" .benc_str("downloaded") . "i" . $result["times_completed"] . "e" .benc_str("incomplete") . "i" . $result["leechers"] . "e" . benc_str("name") . benc_str($result["name"]) . "e";
 
-									if(isset($db[$map])) {
-
-										$data[$z]["info_hash"] = bin2hex($info_hash);
-										$data[$z]["peer_id"] = bin2hex($peer_id);
-										$data[$z] = array_merge($data[$z], $db[$map]);
-										$data[$z]["useragent"] = formatClient($data[$z]["useragent"]);
-										$data[$z]["downloaded"] = formatBytes($data[$z]["downloaded"]);
-										$data[$z]["uploaded"] = formatBytes($data[$z]["uploaded"]);
-										$data[$z]["left"] = formatBytes($data[$z]["left"]);
-										$data[$z]["date"] = formatUpdate(time()-$data[$z]["date"]);
-
-										$z++;
-
-									}
-
-								}
-
-							}
-
-						}
-
-					}
-
-					if(isset($_GET["format"]) && trim($_GET["format"]) == "array") {
-
-						$torrents = print_r($data, true);
-
-					}
-					elseif(isset($_GET["format"]) && trim($_GET["format"]) == "json") {
-
-						$torrents = json_encode($data, true);
-
-					} else {
-
-						$torrents = new ArrayToTextTable($data);
-						$torrents->showHeaders(true);
-						$torrents = $torrents->render(true);
-
-					}
-
-					track_print($client[$i]['sock'], $torrents);
-
-					unset($data);
-
-				} else {
-
-					track_print($client[$i]['sock'], "Kein Zugriff!");
+					$log->msg("\r\nCLIENT (".date("d.m.Y H:i:s",time())."): Scrape -> ".$result["name"]);
 
 				}
+
+				$r .= "ee";
+
+				benc_resp_raw($client[$i]['sock'],$r,"text/plain");
+
+				unset($r);
 
 			}
 			elseif(substr($split_status[1],0,9) == "/announce") {
 
+				$ip = $getip;
+				$port = $getport;
+
 				// Tracker Begin
 
-				$info_hash = checkGET("info_hash", true);
-				$peer_id = checkGET("peer_id", true);
-				$port = checkGET("port");
+				if(preg_match("/^Mozilla/", $useragent) || preg_match("/^MSIE/", $agent) || preg_match("/^Opera/", $useragent) || preg_match("/^Links/", $useragent) || preg_match("/^Lynx/", $useragent) || preg_match("/^curl/", $useragent) || preg_match("/^php/", $useragent)) {
+					benc_resp_raw($client[$i]['sock'],"Du benutzt einen ungültigen Client!");
+				}
+				elseif($plugins_loaded["clientban"])
+					new UserAgent($useragent);
 
-				if(!ctype_digit($port) || $port < 1 || $port > 65535) {
-					track_print($client[$i]['sock'], track("Invalid client port"));
+				foreach(array("passkey","info_hash","peer_id","port","downloaded","uploaded","left") as $x) {
+					if(!isset($_GET[$x])) err($client[$i]['sock'], $client[$i]['sock'],"Fehlender Parameter fuer Announce: $x");
 				}
 
-				$map = $info_hash.":".$peer_id;
+				foreach(array("info_hash","peer_id") as $x) {
+					if(strlen(hash_pad(hex_esc($_GET[$x]))) != 20) err($client[$i]['sock'], $client[$i]['sock'],"Ungueltiger Wert fuer $x (" . strlen(hash_pad(hex_esc($_GET[$x]))) . " - " . rawurlencode(hash_pad(hex_esc($_GET[$x]))) . ")");
+				}
 
-				if(isset($_GET["event"]) && $_GET["event"] === "stopped") {
+				foreach(array("info_hash","peer_id","event","ip","localip","ipv6","passkey","key") as $x) {
+					$GLOBALS[$x] = "" .$_GET[$x];
+				}
 
-					unset($db[$map]);
+				foreach(array("port","downloaded","uploaded","left","compact","no_peer_id") as $x) {
+					$GLOBALS[$x] = 0 + $_GET[$x];
+				}
 
-					if(isset($db[$info_hash])) {
+				if(checkpasskey($passkey) == "0")
+					err($client[$i]['sock'], $client[$i]['sock'], "Ungueltiger PassKey (".strlen($passkey)." - $passkey). Re-Download the .torrent");
+				elseif(!$port || $port > 0xffff)
+					err($client[$i]['sock'], $client[$i]['sock'], "Ungueltiger TCP-Port");
+				elseif(portblacklisted($port))
+					err($client[$i]['sock'], $client[$i]['sock'], "Der TCP-Port $port ist nicht erlaubt.");
 
-						if(in_array($peer_id, $db[$info_hash])) {
-							delete_value($info_hash, $peer_id);
-						}
+				$time = time();
+				$ip = $getip;
+				$host = gethostbyaddr($ip);
+				$nick = nickfrompasskey($passkey);
+				$announce_interval = 60*20;
+				$rsize = 50;
 
-					}
+				// mysql
+				$query = mysql_query("SELECT id, name, seeders + leechers AS numpeers, added AS ts FROM torrents WHERE info_hash='".mysql_real_escape_string($info_hash)."' LIMIT 1");
+				$row = mysql_num_rows($query);
+				$result = mysql_fetch_array($query);
 
-					if(count($db[$info_hash]) == 0) {
+				$torrent_id = $result[id];
+				$torrent_name = $result[name];
 
-						if(in_array($info_hash, $db["torrents"])) {
-							delete_value("torrents", $info_hash);
-						}
+				check_ip_limit();
 
-						unset($db[$info_hash]);
+				if($row == "0")
+					err($client[$i]['sock'], "Dieser Torrent ist dem Tracker nicht bekannt!");
 
-					}
+				$port = 0 + $port;
+				$downloaded = 0 + $downloaded;
+				$uploaded = 0 + $uploaded;
+				$downspeed = 0 + $downspeed;
+				$upspeed = 0 + $upspeed;
+				$left = 0 + $left;
+				$seeder = ($left == 0) ? "yes" : "no";
+				$updateset = array();
 
-					$log->msg("CLIENT (".date("d.m.Y H:i:s",time())."): IP: ".$ip." -> Announce -> Peer_ID: ".$peer_id." -> ".$info_hash."\r\n");
+				if(!isset($event)) $event = "";
 
-					track_print($client[$i]['sock'], track(array()));
-
+				if(!checkconnect($ip, $port)) {
+					$connectable = "no";
+					$active = "0";
 				} else {
+					$connectable = "yes";
+					$active = "1";
+				}
 
-					if(!array_key_exists($info_hash, $db)) {
-						$db[$info_hash] = array();
+				if($connectable == "no")
+					err($client[$i]['sock'], "Du darfst nicht saugen da du nicht erreichbar bist!");
+
+				foreach(array("num want", "numwant", "num_want") as $k) {
+
+					if(isset($_GET[$k])) {
+						$rsize = 0 + $_GET[$k];
+						break;
 					}
 
-					if(!in_array($info_hash, $db["torrents"])) {
-						$db["torrents"][] = $info_hash;
+				}
+
+				if(trim($response[$torrent_id]) == "" || $event == "started" || $event == "stopped") {
+
+					unset($response[$torrent_id]);
+
+					$limit = "ORDER BY RAND() LIMIT $rsize";
+					$fields = "seeder, peer_id, ip, port, uploaded, downloaded, nick";
+
+					// mysql
+					$query = mysql_query("SELECT $fields FROM peers WHERE torrent='$torrent_id' AND active='1' AND connectable='yes' $limit");
+					$row = mysql_num_rows($query);
+
+					if($compact != 1) {
+						$resp = "d" . benc_str("interval") . "i" . $announce_interval . "e" . benc_str("private") . 'i1e' . benc_str("peers") . "l";
+					} else {
+						$resp = "d" . benc_str("interval") . "i" . $announce_interval . "e" . benc_str("min interval") . "i" . 300 ."e5:" . "peers";
 					}
 
-					if(!in_array($peer_id, $db[$info_hash])) {
-						$db[$info_hash][] = $peer_id;
-					}
+					$peer = array();
+					$peer_num = 0;
+					unset($self);
 
-					$downloaded = (isset($_GET["downloaded"])) ? intval($_GET["downloaded"]) : 0;
-					$uploaded = (isset($_GET["uploaded"])) ? intval($_GET["uploaded"]) : 0;
-					$left = (isset($_GET["left"])) ? intval($_GET["left"]) : 0;
-					$is_seed = ($left == 0) ? 1 : 0;
-					$numwant = (isset($_GET["numwant"])) ? intval($_GET["numwant"]) : 50;
-					$compact = (isset($_GET["compact"]) && intval($_GET["compact"]) == 1) ? true : false;
+					// mysql
+					while($result = mysql_fetch_assoc($query)) {
 
-					$db[$map] = (count($db[$map]) > 0) ? array_replace($db[$map], array("ip" => $ip, "port" => $port, "seed" => $is_seed, "downloaded" => $downloaded, "uploaded" => $uploaded, "left" => $left, "date" => time(), "useragent" => $useragent)) : array("ip" => $ip, "port" => $port, "seed" => $is_seed, "downloaded" => $downloaded, "uploaded" => $uploaded, "left" => $left, "date" => time(), "useragent" => $useragent);
+						$result["peer_id"] = hash_pad($result["peer_id"]);
 
-					$pid_list = $db[$info_hash];
+						if($result["peer_id"] == $peer_id) {
+							$self = $result;
+							continue;
+						}
 
-					$peers = array();
-					$count = $seeder = $leecher = 0;
-					foreach($pid_list AS $pid) {
+						if($compact != 1) {
 
-						if($pid == $peer_id) continue;
-
-						$temp_map = $info_hash.":".$pid;
-
-						$temp = $db[$temp_map];
-
-						if(!$temp["ip"]) {
-
-							if(in_array($pid, $db[$info_hash])) {
-								delete_value($info_hash, $pid);
-							}
+							$resp .= "d" .benc_str("ip") . benc_str($result["ip"]);
+							if(!$_GET['no_peer_id']) $resp .= benc_str("peer id") . benc_str($result["peer_id"]);
+							$resp .= benc_str("port") . "i" . $result["port"] . "e" . "e";
 
 						} else {
 
-							if($temp["seed"]) {
-								$seeder++;
-							} else {
-								$leecher++;
-							}
+							$peer_ip = explode('.', $result["ip"]);
+							$peer_ip = pack("C*", $peer_ip[0], $peer_ip[1], $peer_ip[2], $peer_ip[3]);
+							$peer_port = pack("n*", (int)$result["port"]);
+							$time2 = intval(($time % 7680) / 60);
 
-							if($temp["seed"] && $is_seed) continue;
+							if($left == "0") $time2 += 128;
 
-							if($count < $numwant) {
+							$time2 = pack("C", $time2);
 
-								$peers[$pid] = array("ip" => $temp["ip"], "port" => $temp["port"]);
+							$peer[] = $time2 . $peer_ip . $peer_port;
 
-								$count++;
-
-							}
+							$peer_num++;
 
 						}
 
 					}
 
-					if($is_seed) {
-						$seeder++;
+					if($compact != 1) {
+						$resp .= "ee";
 					} else {
-						$leecher++;
+
+						for($j=0; $j<$peer_num; $j++) {
+							$o .= substr($peer[$j], 1, 6);
+						}
+
+						$resp .= strlen($o) . ":" . $o . "e";
+
 					}
 
-					$log->msg("CLIENT (".date("d.m.Y H:i:s",time())."): IP: ".$ip." -> Announce -> Peer_ID: ".$peer_id." -> ".$info_hash."\r\n");
+				} else {
+					$resp = $response[$torrent_id];
+				}
 
-					track_print($client[$i]['sock'], track($peers, $seeder, $leecher, $compact));
+				if($event == "stopped") {
 
-					unset($peers);
+					// Stopped -> DELETE
 
 				}
+				elseif($event == "completed") {
+
+					// Completed -> UPDATE
+
+				} else {
+
+					if(isset($self)) {
+
+						// UPDATE
+
+					} else {
+
+						if($event != "started") {
+							err($client[$i]['sock'], "Peer nicht gefunden! Restart the Torrent.");
+						}
+
+						// INSERT
+
+					}
+
+				}
+
+				$log->msg("\r\nCLIENT (".date("d.m.Y H:i:s",time())."): Nickname: ".$nick." -> Announce -> Event: ".$event." -> ".$torrent_name);
+
+				benc_resp_raw($client[$i]['sock'],$resp,"text/plain");
+
+				$response[$torrent_id] = $resp;
+
+				unset($resp);
 
 			// Tracker Ende
 
 			} else {
 
-				track_print($client[$i]['sock'], "BitTorrent PHP Announce Socket Server");
+				benc_resp_raw($client[$i]['sock'],"Scream Labs PHP BitTorrent Announce Socket Server ".release()."<br>Copyright 2011-".date("Y")." <a href=\"mailto:stifler@chello.at\">Johannes Hrovat</a>, <a href=\"http://www.screamlabs.at\" target=\"_blank\">www.screamlabs.at</a>");
 
 			}
 
@@ -394,7 +509,7 @@ while($server["running"]) {
 				unset($client[$i]['sock']);
 				unset($client[$i]);
 
-				$log->msg("CLIENT (".date("d.m.Y H:i:s",time())."): Disconnected Client #".$i."\r\n");
+				$log->msg("\r\nCLIENT (".date("d.m.Y H:i:s",time())."): Disconnected Client #".$i);
 
 			}
 

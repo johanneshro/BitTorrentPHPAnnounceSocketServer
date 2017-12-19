@@ -1,0 +1,44 @@
+Scream Labs PHP BitTorrent Announce Socket Server 1.1 [Build: 20110504] (Beta)SERVER (19.12.2017 21:12:26): Initializing...SERVER (19.12.2017 21:12:26): Initialization OK!SERVER (19.12.2017 21:12:26): Server running on localhost:81 ...SERVER (19.12.2017 21:12:26): Cache -> 404.html (278 Bytes)SERVER (19.12.2017 21:12:26): Cache -> index.html (175 Bytes)
+CLIENT (19.12.2017 21:12:38): New Client #0 connected: 127.0.0.1:64065
+CLIENT (19.12.2017 21:12:38): New Client #1 connected: 127.0.0.1:64066
+CLIENT (19.12.2017 21:12:38): Disconnected Client #0
+CLIENT (19.12.2017 21:12:38): Disconnected Client #1
+CLIENT (19.12.2017 21:12:39): New Client #0 connected: 127.0.0.1:64067
+CLIENT (19.12.2017 21:12:39): Disconnected Client #0
+CLIENT (19.12.2017 21:13:57): New Client #0 connected: 127.0.0.1:64106
+CLIENT (19.12.2017 21:13:57): New Client #1 connected: 127.0.0.1:64107
+CLIENT (19.12.2017 21:13:57): Disconnected Client #0
+CLIENT (19.12.2017 21:14:14): Nickname:  -> Announce -> Event:  -> 
+CLIENT (19.12.2017 21:14:14): Disconnected Client #1
+CLIENT (19.12.2017 21:14:14): New Client #0 connected: 127.0.0.1:64108
+CLIENT (19.12.2017 21:14:14): New Client #1 connected: 127.0.0.1:64109
+CLIENT (19.12.2017 21:14:15): Disconnected Client #1
+CLIENT (19.12.2017 21:14:15): New Client #0 connected: 127.0.0.1:64110
+CLIENT (19.12.2017 21:14:15): New Client #1 connected: 127.0.0.1:64138
+CLIENT (19.12.2017 21:14:15): Disconnected Client #1
+CLIENT (19.12.2017 21:14:16): New Client #0 connected: 127.0.0.1:64139
+CLIENT (19.12.2017 21:14:16): New Client #1 connected: 127.0.0.1:64145
+CLIENT (19.12.2017 21:14:16): Disconnected Client #0
+CLIENT (19.12.2017 21:14:16): Disconnected Client #1
+CLIENT (19.12.2017 21:14:17): New Client #0 connected: 127.0.0.1:64149
+CLIENT (19.12.2017 21:14:17): New Client #1 connected: 127.0.0.1:64150
+CLIENT (19.12.2017 21:14:17): Disconnected Client #0
+CLIENT (19.12.2017 21:14:17): Disconnected Client #1
+CLIENT (19.12.2017 21:14:32): New Client #0 connected: 127.0.0.1:64164
+CLIENT (19.12.2017 21:14:32): New Client #1 connected: 127.0.0.1:64165
+CLIENT (19.12.2017 21:14:32): Request -> ! -> Output -> index.html
+CLIENT (19.12.2017 21:14:32): Disconnected Client #0
+CLIENT (19.12.2017 21:14:32): Disconnected Client #1
+CLIENT (19.12.2017 21:14:33): New Client #0 connected: 127.0.0.1:64166
+CLIENT (19.12.2017 21:14:33): New Client #1 connected: 127.0.0.1:64167
+CLIENT (19.12.2017 21:14:33): Disconnected Client #0
+CLIENT (19.12.2017 21:14:33): Disconnected Client #1
+CLIENT (19.12.2017 21:15:11): New Client #0 connected: 127.0.0.1:64186
+CLIENT (19.12.2017 21:15:11): New Client #1 connected: 127.0.0.1:64187
+CLIENT (19.12.2017 21:15:13): Request -> ! -> Output -> index.html
+CLIENT (19.12.2017 21:15:13): Disconnected Client #0
+CLIENT (19.12.2017 21:15:13): Disconnected Client #1
+CLIENT (19.12.2017 21:15:14): New Client #0 connected: 127.0.0.1:64188
+CLIENT (19.12.2017 21:15:14): New Client #1 connected: 127.0.0.1:64190
+CLIENT (19.12.2017 21:15:14): Disconnected Client #0
+CLIENT (19.12.2017 21:15:14): Disconnected Client #1
