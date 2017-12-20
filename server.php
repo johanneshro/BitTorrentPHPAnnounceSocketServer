@@ -3,7 +3,7 @@ ob_implicit_flush();
 set_time_limit(0);
 ini_set('max_execution_time','0');
 
-include("config.php");
+include("core/config.php");
 
 // mysql
 $db_connect = @mysql_pconnect($db["server"],$db["user"],$db["passwd"]);
@@ -12,8 +12,9 @@ $db_connect = @mysql_pconnect($db["server"],$db["user"],$db["passwd"]);
 if(!$db_connect)
 	$server["running"] = false;
 
-include("functions.php");
-require_once("classes.php");
+include("core/functions.php");
+//include("core/benc.php"); // erst reste tilgen
+include("core/classes.php"); //rn log.php
 
 $log = new log($logfile);
 $sock = start_server();
