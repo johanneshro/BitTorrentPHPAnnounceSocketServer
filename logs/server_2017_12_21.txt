@@ -1,0 +1,54 @@
+SERVER (21.12.2017 11:18:32): Initializing...
+SERVER (21.12.2017 11:18:32): Initialization OK!
+SERVER (21.12.2017 11:18:32): Server running on localhost:8081 ...
+SERVER (21.12.2017 11:18:32): Cache -> 404.html (278 Bytes)
+SERVER (21.12.2017 11:18:32): Cache -> index.html (175 Bytes)
+SERVER (21.12.2017 11:20:47): Initializing...
+SERVER (21.12.2017 11:20:47): Initialization OK!
+SERVER (21.12.2017 11:20:47): Server running on localhost:81 ...
+SERVER (21.12.2017 11:20:47): Cache -> 404.html (278 Bytes)
+SERVER (21.12.2017 11:20:47): Cache -> index.html (175 Bytes)
+CLIENT (21.12.2017 11:21:16): New Client #0 connected: 127.0.0.1:65453
+CLIENT (21.12.2017 11:21:16): Disconnected Client #0
+CLIENT (21.12.2017 11:21:29): New Client #0 connected: 127.0.0.1:65465
+CLIENT (21.12.2017 11:21:29): Disconnected Client #0
+CLIENT (21.12.2017 11:25:59): New Client #0 connected: 127.0.0.1:49281
+CLIENT (21.12.2017 11:25:59): Disconnected Client #0
+CLIENT (21.12.2017 11:44:01): New Client #0 connected: 127.0.0.1:50169
+CLIENT (21.12.2017 11:44:01): Disconnected Client #0
+CLIENT (21.12.2017 12:02:03): New Client #0 connected: 127.0.0.1:51055
+CLIENT (21.12.2017 12:02:03): Disconnected Client #0
+CLIENT (21.12.2017 12:23:27): New Client #0 connected: 127.0.0.1:51993
+CLIENT (21.12.2017 12:23:27): Disconnected Client #0
+CLIENT (21.12.2017 12:32:07): New Client #0 connected: 127.0.0.1:52271
+CLIENT (21.12.2017 12:32:07): Disconnected Client #0
+CLIENT (21.12.2017 12:34:58): New Client #0 connected: 127.0.0.1:52385
+CLIENT (21.12.2017 12:34:58): New Client #1 connected: 127.0.0.1:52386
+CLIENT (21.12.2017 12:34:58): Disconnected Client #0
+CLIENT (21.12.2017 12:34:58): Disconnected Client #1
+CLIENT (21.12.2017 12:34:59): New Client #0 connected: 127.0.0.1:52387
+CLIENT (21.12.2017 12:34:59): Disconnected Client #0
+CLIENT (21.12.2017 12:35:04): New Client #0 connected: 127.0.0.1:52393
+CLIENT (21.12.2017 12:35:04): New Client #1 connected: 127.0.0.1:52394
+CLIENT (21.12.2017 12:35:04): Disconnected Client #0
+CLIENT (21.12.2017 12:35:04): Disconnected Client #1
+CLIENT (21.12.2017 12:35:04): New Client #0 connected: 127.0.0.1:52395
+CLIENT (21.12.2017 12:35:04): Disconnected Client #0
+CLIENT (21.12.2017 12:35:10): New Client #0 connected: 127.0.0.1:52402
+CLIENT (21.12.2017 12:35:11): New Client #1 connected: 127.0.0.1:52403
+CLIENT (21.12.2017 12:35:11): Disconnected Client #0
+CLIENT (21.12.2017 12:35:11): Disconnected Client #1
+CLIENT (21.12.2017 12:35:11): New Client #0 connected: 127.0.0.1:52404
+CLIENT (21.12.2017 12:35:11): Disconnected Client #0
+CLIENT (21.12.2017 12:35:46): New Client #0 connected: 127.0.0.1:52425
+CLIENT (21.12.2017 12:35:46): New Client #1 connected: 127.0.0.1:52426
+CLIENT (21.12.2017 12:35:46): Disconnected Client #0
+CLIENT (21.12.2017 12:35:46): Disconnected Client #1
+CLIENT (21.12.2017 12:35:46): New Client #0 connected: 127.0.0.1:52427
+CLIENT (21.12.2017 12:35:46): Disconnected Client #0
+CLIENT (21.12.2017 12:35:58): New Client #0 connected: 127.0.0.1:52439
+CLIENT (21.12.2017 12:35:58): New Client #1 connected: 127.0.0.1:52440
+CLIENT (21.12.2017 12:35:58): Disconnected Client #0
+CLIENT (21.12.2017 12:35:58): Disconnected Client #1
+CLIENT (21.12.2017 12:35:58): New Client #0 connected: 127.0.0.1:52441
+CLIENT (21.12.2017 12:35:58): Disconnected Client #0
