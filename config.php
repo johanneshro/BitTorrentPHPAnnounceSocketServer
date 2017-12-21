@@ -1,5 +1,9 @@
 <?php
 
+$server = array();
+$logfile = array();
+$extern = array();
+
 // Server
 $server["ip"] = "0.0.0.0";
 $server["port"] = 8081;

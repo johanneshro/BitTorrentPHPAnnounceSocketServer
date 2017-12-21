@@ -11,7 +11,7 @@ function start_server() {
 
 	@socket_set_option($sock, SOL_SOCKET, SO_REUSEADDR, 1);
 
-	$bind = @socket_bind($sock, $server[ip], $server[port]);
+	$bind = @socket_bind($sock, $server["ip"], $server["port"]);
 
 	if(!$bind) $log->msg("ERROR (".date("d.m.Y H:i:s",time())."): Can't bind socket to given address! Reason: ".socket_strerror($bind)."\r\n",true);
 
@@ -24,7 +24,7 @@ function start_server() {
 	$server["running"] = true;
 
 	$log->msg("SERVER (".date("d.m.Y H:i:s",time())."): Initialization OK!\r\n");
-	$log->msg("SERVER (".date("d.m.Y H:i:s",time())."): Server running on ".$server[ip].":".$server[port]." ...\r\n");
+	$log->msg("SERVER (".date("d.m.Y H:i:s",time())."): Server running on ".$server["ip"].":".$server["port"]." ...\r\n");
 
 	return $sock;
 
@@ -67,6 +67,8 @@ function delete_value($array, $value) {
 
 function files() {
 	global $extern, $log;
+
+	$array = array();
 
 	$extensions = explode('|', $extern["extensions"]);
 
@@ -144,20 +146,30 @@ function track($list, $complete=0, $incomplete=0, $compact=false) {
 function checkGET($key, $strlen_check=false) {
 	global $_GET, $client, $i;
 
-	if(!isset($_GET[$key])) {
-		track_print($client[$i]['sock'], track("Missing key: $key"));
-	}
-	elseif(!is_string($_GET[$key])) {
-		track_print($client[$i]['sock'], track("Invalid types on one or more arguments"));
-	}
-	elseif($strlen_check && strlen($_GET[$key]) != 20) {
-		track_print($client[$i]['sock'], track("Invalid length on ".$key." argument"));
-	}
-	elseif(strlen($_GET[$key]) > 128) {
-		track_print($client[$i]['sock'], track("Argument ".$key." is too large to handle"));
+	if(isset($client[$i]['sock'])) {
+
+		if(!isset($_GET[$key])) {
+			track_print($client[$i]['sock'], track("Missing key: $key"));
+			return false;
+		}
+		elseif(!is_string($_GET[$key])) {
+			track_print($client[$i]['sock'], track("Invalid types on one or more arguments"));
+			return false;
+		}
+		elseif($strlen_check && strlen($_GET[$key]) != 20) {
+			track_print($client[$i]['sock'], track("Invalid length on ".$key." argument"));
+			return false;
+		}
+		elseif(strlen($_GET[$key]) > 128) {
+			track_print($client[$i]['sock'], track("Argument ".$key." is too large to handle"));
+			return false;
+		}
+
+		return $_GET[$key];
+
 	}
 
-	return $_GET[$key];
+	return false;
 
 }
 
@@ -173,16 +185,14 @@ function track_print($socket, $x, $ctype="Text/Plain") {
 
 	@socket_write($socket, $header, strlen($header));
 
-	if($client[$i]['sock'] != null) {
+	@socket_close($client[$i]['sock']);
+	@socket_close($socket);
 
-		@socket_close($client[$i]['sock']);
+	unset($socket);
+	unset($client[$i]['sock']);
+	unset($client[$i]);
 
-		unset($client[$i]['sock']);
-		unset($client[$i]);
-
-		$log->msg("CLIENT (".date("d.m.Y H:i:s",time())."): Disconnected Client #".$i."\r\n");
-
-	}
+	$log->msg("CLIENT (".date("d.m.Y H:i:s",time())."): Disconnected Client #".$i."\r\n");
 
 }
 
@@ -216,10 +226,28 @@ function http_parse_headers($headers) {
 
 }
 
+function escape_string($string) {
+
+	$replacements = array(
+		"\x00"=>'\x00',
+     	"\n"=>'\n',
+     	"\r"=>'\r',
+     	"\\"=>'\\\\',
+     	"'"=>"\'",
+     	'"'=>'\"',
+     	"\x1a"=>'\x1a'
+	);
+
+	return strtr($string, $replacements);
+
+}
+
 function parse_query_string($url) {
 
+	$val = array();
+
 	$ex = explode("?", $url);
-	$str = $ex[1];
+	$str = (isset($ex[1])) ? $ex[1] : false;
 
 	if($str) {
 
@@ -229,9 +257,9 @@ function parse_query_string($url) {
 
 			if($e) {
 
-				list($k,$v) = explode("=", $e);
+				@list($k, $v) = @explode("=", $e);
 
-				$val[$k] = mysql_real_escape_string(rawurldecode($v));
+				$val[$k] = escape_string(rawurldecode($v));
 
 			}
 

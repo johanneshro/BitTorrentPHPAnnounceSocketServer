@@ -2,9 +2,9 @@
 
 class log {
 
-	var $logfile = "";
+	public $logfile = "";
 
-	function log($logfile) {
+	public function __construct($logfile) {
 
 		if(!is_dir($logfile["directory"])) {
 			@mkdir($logfile["directory"], 0755);
@@ -16,7 +16,7 @@ class log {
 
 	}
 
-	function header($msg) {
+	public function header($msg) {
 
 		$temp = "WRITE: ".str_replace("\n","\r\n",$msg);
 
@@ -24,7 +24,7 @@ class log {
 
 	}
 
-	function msg($msg, $stop=false, $print=true) {
+	public function msg($msg, $stop=false, $print=true) {
 
 		$open = @fopen($this->logfile, "ab");
 

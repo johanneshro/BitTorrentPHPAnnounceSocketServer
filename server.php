@@ -10,7 +10,7 @@ define("CLIENT_TIMEOUT", 60);
 include("config.php");
 include("functions.php");
 include("classes.php");
-include("../../comments/inc/class.arraytotexttable.inc.php");
+include("arraytotexttable.php");
 
 $log = new log($logfile);
 $sock = start_server();
@@ -32,7 +32,7 @@ while($server["running"]) {
 
 	for($i = 0; $i<$server["max_clients"]; $i++) {
 
-		if($client[$i]['sock'] != NULL && is_resource($client[$i]['sock']) && get_resource_type($client[$i]['sock']) == "Socket") {
+		if(isset($client[$i]['sock']) && $client[$i]['sock'] != NULL && is_resource($client[$i]['sock']) && get_resource_type($client[$i]['sock']) == "Socket") {
 			$read[$i+1] = $client[$i]['sock'];
 		}
 		elseif(isset($read[$i+1])) {
@@ -49,7 +49,7 @@ while($server["running"]) {
 
 		for($i = 0; $i<$server["max_clients"]; $i++) {
 
-			if($client[$i]['sock'] == null) {
+			if(!isset($client[$i]['sock'])) {
 
 				if(($client[$i]['sock'] = @socket_accept($sock)) < 0) {
 
@@ -83,7 +83,7 @@ while($server["running"]) {
 
 	for($i=0; $i<$server["max_clients"]; $i++) {
 
-		if(in_array($client[$i]['sock'], $read)) {
+		if(isset($client[$i]['sock']) && in_array($client[$i]['sock'], $read)) {
 
 			$input = @socket_read($client[$i]['sock'], 1024);
 
@@ -105,8 +105,8 @@ while($server["running"]) {
 			$split_status = explode(" ", $split_2["status"]);
 
 			$_GET = parse_query_string($split_status[1]);
-			$method = trim($split_status[0]);
-			$useragent = trim($split_2["User-Agent"]);
+			$method = (isset($split_status[0]) && !empty($split_status[0])) ? trim($split_status[0]) : "GET";
+			$useragent = (isset($split_2["User-Agent"]) && !empty($split_2["User-Agent"])) ? trim($split_2["User-Agent"]) : "";
 
 			if($method != "GET") track_print($client[$i]['sock'], "Fertig!");
 
@@ -123,9 +123,9 @@ while($server["running"]) {
 
 			}
 
-			if(substr($split_status[1],0,6) == "/files") {
+			if(isset($split_status[1]) && substr($split_status[1],0,6) == "/files") {
 
-				$file = $_GET["file"];
+				$file = isset($_GET["file"]) ? $_GET["file"] : false;
 
 				if(!$file) {
 
@@ -135,7 +135,7 @@ while($server["running"]) {
 
 				} else {
 
-					if(count($files[$file]) > 0) {
+					if(isset($files[$file])) {
 
 						$log->msg("CLIENT (".date("d.m.Y H:i:s",time())."): Request -> ".$file." -> Output -> ".$file."\r\n");
 
@@ -152,12 +152,12 @@ while($server["running"]) {
 				}
 
 			}
-			elseif(substr($split_status[1],0,7) == "/status") {
+			elseif(isset($split_status[1]) && substr($split_status[1],0,7) == "/status") {
 
 				track_print($client[$i]['sock'], "Started: ".date("d.m.Y H:i:s",$started)."\nHits: ".$hits."\nClients: ".count($client));
 
 			}
-			elseif(substr($split_status[1],0,8) == "/clients") {
+			elseif(isset($split_status[1]) && substr($split_status[1],0,8) == "/clients") {
 
 				$clients = array();
 
@@ -178,7 +178,7 @@ while($server["running"]) {
 				unset($clients);
 
 			}
-			elseif(substr($split_status[1],0,5) == "/kill") {
+			elseif(isset($split_status[1]) && substr($split_status[1],0,5) == "/kill") {
 
 				if(trim($_GET["admin"]) == $server["admin"]) {
 
@@ -193,9 +193,9 @@ while($server["running"]) {
 				}
 
 			}
-			elseif(substr($split_status[1],0,3) == "/db") {
+			elseif(isset($split_status[1]) && substr($split_status[1],0,3) == "/db") {
 
-				if(trim($_GET["admin"]) == $server["admin"]) {
+				if(isset($_GET["admin"]) && trim($_GET["admin"]) == $server["admin"]) {
 
 					$data = array();
 
@@ -261,7 +261,7 @@ while($server["running"]) {
 				}
 
 			}
-			elseif(substr($split_status[1],0,9) == "/announce") {
+			elseif(isset($split_status[1]) && substr($split_status[1],0,9) == "/announce") {
 
 				// Tracker Begin
 
@@ -269,8 +269,11 @@ while($server["running"]) {
 				$peer_id = checkGET("peer_id", true);
 				$port = checkGET("port");
 
-				if(!ctype_digit($port) || $port < 1 || $port > 65535) {
+				if(!$info_hash || !$peer_id || !$port) break;
+
+				if(isset($port) && (!ctype_digit($port) || $port < 1 || $port > 65535)) {
 					track_print($client[$i]['sock'], track("Invalid client port"));
+					break;
 				}
 
 				$map = $info_hash.":".$peer_id;
@@ -322,7 +325,7 @@ while($server["running"]) {
 					$numwant = (isset($_GET["numwant"])) ? intval($_GET["numwant"]) : 50;
 					$compact = (isset($_GET["compact"]) && intval($_GET["compact"]) == 1) ? true : false;
 
-					$db[$map] = (count($db[$map]) > 0) ? array_replace($db[$map], array("ip" => $ip, "port" => $port, "seed" => $is_seed, "downloaded" => $downloaded, "uploaded" => $uploaded, "left" => $left, "date" => time(), "useragent" => $useragent)) : array("ip" => $ip, "port" => $port, "seed" => $is_seed, "downloaded" => $downloaded, "uploaded" => $uploaded, "left" => $left, "date" => time(), "useragent" => $useragent);
+					$db[$map] = (isset($db[$map]) && count($db[$map]) > 0) ? array_replace($db[$map], array("ip" => $ip, "port" => $port, "seed" => $is_seed, "downloaded" => $downloaded, "uploaded" => $uploaded, "left" => $left, "date" => time(), "useragent" => $useragent)) : array("ip" => $ip, "port" => $port, "seed" => $is_seed, "downloaded" => $downloaded, "uploaded" => $uploaded, "left" => $left, "date" => time(), "useragent" => $useragent);
 
 					$pid_list = $db[$info_hash];
 
@@ -382,13 +385,15 @@ while($server["running"]) {
 
 			} else {
 
-				track_print($client[$i]['sock'], "BitTorrent PHP Announce Socket Server");
+				if(isset($client[$i]['sock'])) {
+					track_print($client[$i]['sock'], "BitTorrent PHP Announce Socket Server");
+				}
 
 			}
 
 		} else {
 
-			if($client[$i]['sock'] != null) {
+			if(isset($client[$i]['sock'])) {
 
 				@socket_close($client[$i]['sock']);
 				unset($client[$i]['sock']);
