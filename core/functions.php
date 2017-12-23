@@ -92,16 +92,13 @@ function checkGET($key, $strlen_check=false) {
 		if(!isset($_GET[$key])) {
 			track_print($client[$i]['sock'], track("Missing key: " . $key));
 			return false;
-		}
-		elseif(!is_string($_GET[$key])) {
+		}elseif(!is_string($_GET[$key])) {
 			track_print($client[$i]['sock'], track("Invalid types on one or more arguments"));
 			return false;
-		}
-		elseif($strlen_check && strlen($_GET[$key]) != 20) {
+		}elseif($strlen_check && strlen($_GET[$key]) != 20) {
 			track_print($client[$i]['sock'], track("Invalid length on ".$key." argument"));
 			return false;
-		}
-		elseif(strlen($_GET[$key]) > 128) {
+		}elseif(strlen($_GET[$key]) > 128) {
 			track_print($client[$i]['sock'], track("Argument ".$key." is too large to handle"));
 			return false;
 		}
@@ -167,7 +164,10 @@ function parse_query_string($url) {
 		foreach($a AS $e) {
 			if($e) {
 				@list($k, $v) = @explode("=", $e);
-				$val[$k] = escape_string(rawurldecode($v));
+				if($k == "info_hash" || $k == "peer_id")
+					$val[$k] = urldecode($v);
+				else
+					$val[$k] = escape_string(rawurldecode($v));
 			}
 		}
 	}
