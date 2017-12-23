@@ -7,10 +7,6 @@ define("INTERVAL", 1800);
 define("INTERVAL_MIN", 300);
 define("CLIENT_TIMEOUT", 60);
 
-// report no errors
-//error_reporting(0);
-//ini_set('display_errors', 0);  
-
 include("core/config.php");
 include("core/functions.php");
 //include("core/benc.php");
@@ -18,34 +14,18 @@ include("core/log.class.php");
 include("core/db.class.php");
 include("core/nv.class.php");
 include("core/arraytotexttable.php");
-// mysql
-//$db_connect = @mysql_pconnect($db["server"],$db["user"],$db["passwd"]);
-//@mysql_select_db($db["name"],$db_connect);
-//NEU PDO ! :D
-/*$db_info = array( 
-	"db_host" => "localhost", 
-	"db_port" => "3306",
-	"db_user" => "root",
-	"db_pass" => "",
-	"db_name" => "nvtracker",
-	"db_charset" => "UTF-8"
-);
-$dsn = ["mysql:host=".$db_info['db_host'].';port='.$db_info['db_port'].';dbname='.$db_info['db_name'],$db_info['db_user'], $db_info['db_pass']];
-
 
 $database = new db($dsn);
-$GLOBALS['DB'] = $database->getPDO();
-
-
+$pdo = $database->getPDO();
 
 if(!$database)
-	$server["running"] = false;*/
-
+	$server["running"] = false;
 
 $log = new log($logfile);
 
 // Von hier aus holen wir die daten aus der nv-source
-//$nv = new nv($GLOBALS['DB']);
+$nv = new nv($pdo);
+$nv->SetTrackerPath("localhost");
 
 $sock = start_server();
 $plugins_loaded = array();
@@ -55,11 +35,10 @@ $started = time();
 $hits = 0;
 $response = array();
 
-/*
 $db = array();
 $db["torrents"] = array();
 $db["info_hash"] = array();
-*/
+
 
 while($server["running"]) {
 	$read[0] = $sock;
@@ -183,12 +162,12 @@ while($server["running"]) {
 							}
 						}
 					}
+
 					if(isset($_GET["format"]) && trim($_GET["format"]) == "array") {
 						$torrents = print_r($data, true);
-					}
-					elseif(isset($_GET["format"]) && trim($_GET["format"]) == "json") {
+					}elseif(isset($_GET["format"]) && trim($_GET["format"]) == "json") {
 						$torrents = json_encode($data, true);
-					} else {
+					}else{
 						$torrents = new ArrayToTextTable($data);
 						$torrents->showHeaders(true);
 						$torrents = $torrents->render(true);
@@ -203,6 +182,8 @@ while($server["running"]) {
 				$info_hash = checkGET("info_hash", true);
 				$peer_id = checkGET("peer_id", true);
 				$port = checkGET("port");
+				$passkey = checkGET("passkey");
+				$username = $nv->GetUsernameByPasskey($passkey);
 				if(!$info_hash || !$peer_id || !$port) break;
 				if(isset($port) && (!ctype_digit($port) || $port < 1 || $port > 65535)) {
 					track_print($client[$i]['sock'], track("Invalid client port"));
@@ -222,7 +203,7 @@ while($server["running"]) {
 						}
 						unset($db[$info_hash]);
 					}
-					$log->msg("CLIENT (".date("d.m.Y H:i:s",time())."): IP: ".$ip." -> Announce -> Peer_ID: ".$peer_id." -> ".$info_hash."\r\n");
+					$log->msg("CLIENT (".date("d.m.Y H:i:s",time())."): IP: ".$ip." Nick: " . $username . " -> Announce -> Peer_ID: ".$peer_id." -> ".$info_hash."\r\n");
 					track_print($client[$i]['sock'], track(array()));
 				} else {
 					if(!array_key_exists($info_hash, $db)) {
@@ -245,7 +226,8 @@ while($server["running"]) {
 					$peers = array();
 					$count = $seeder = $leecher = 0;
 					foreach($pid_list AS $pid) {
-						if($pid == $peer_id) continue;
+						if($pid == $peer_id)
+							continue;
 						$temp_map = $info_hash.":".$pid;
 						$temp = $db[$temp_map];
 						if(!$temp["ip"]) {
@@ -270,11 +252,24 @@ while($server["running"]) {
 					} else {
 						$leecher++;
 					}
-					$log->msg("CLIENT (".date("d.m.Y H:i:s",time())."): IP: ".$ip." -> Announce -> Peer_ID: ".$peer_id." -> ".$info_hash."\r\n");
+					
+					$log->msg("CLIENT (".date("d.m.Y H:i:s",time())."): IP: ".$ip." Nick: " . $username . " -> Announce -> Peer_ID: ".$peer_id." -> ".$info_hash."\r\n");
 					track_print($client[$i]['sock'], track($peers, $seeder, $leecher, $compact));
 					unset($peers);
 				}
 			// Tracker Ende
+			}elseif(isset($split_status[1]) && substr($split_status[1],0,9) == "/scrape"){
+				// scrape
+				/*
+				$r = "d" . benc_str("files") . "d";
+				$r .= "20:" . hash_pad($row["info_hash"]) . "d" .
+					benc_str("complete") . "i" . $row["seeders"] . "e" .
+					benc_str("downloaded") . "i" . $row["times_completed"] . "e" .
+					benc_str("incomplete") . "i" . $row["leechers"] . "e" .
+					"e";
+				$r .= "ee";
+				*/
+				//
 			} else {
 				if(isset($client[$i]['sock'])) {
 					track_print($client[$i]['sock'], "BitTorrent PHP Announce Socket Server");
