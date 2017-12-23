@@ -1,0 +1,3 @@
+# BitTorrentPHPAnnounceSocketServer
+A public Bittorrent Announce in PHP...
+...um die alte announce in pdonvtracker zu ersetzen.
