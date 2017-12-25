@@ -2,33 +2,37 @@
 
 function start_server() {
 	global $server, $log;
-	$log->msg("SERVER (".date("d.m.Y H:i:s",time())."): Initializing...\r\n");
+	//$log->msg("SERVER (".date("d.m.Y H:i:s",time())."): Initializing...\r\n");
 	$sock = @socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
-	if(!$sock) $log->msg("ERROR (".date("d.m.Y H:i:s",time())."): Can't create socket! Reason: ".socket_strerror($sock)."\r\n",true);
+	if(!$sock)
+		$log->msg("e", "Can't create socket! Reason: ".socket_strerror($sock)."\r\n",true);
 	@socket_set_option($sock, SOL_SOCKET, SO_REUSEADDR, 1);
 	$bind = @socket_bind($sock, $server["ip"], $server["port"]);
-	if(!$bind) $log->msg("ERROR (".date("d.m.Y H:i:s",time())."): Can't bind socket to given address! Reason: ".socket_strerror($bind)."\r\n",true);
+	if(!$bind)
+		$log->msg("e", "Can't bind socket to given address! Reason: ".socket_strerror($bind)."\r\n",true);
 	$listen = @socket_listen($sock, $server["max_clients"]);
-	if(!$listen) $log->msg("ERROR (".date("d.m.Y H:i:s",time())."): Can't listen on socket! Reason: ".socket_strerror($listen)."\r\n",true);
+	if(!$listen)
+		$log->msg("e", "Can't listen on socket! Reason: ".socket_strerror($listen)."\r\n",true);
 	@socket_set_nonblock($sock);
 	$server["running"] = true;
-	$log->msg("SERVER (".date("d.m.Y H:i:s",time())."): Initialization OK!\r\n");
-	$log->msg("SERVER (".date("d.m.Y H:i:s",time())."): Server running on ".$server["ip"].":".$server["port"]." ...\r\n");
+	//$log->msg("SERVER (".date("d.m.Y H:i:s",time())."): Initialization OK!\r\n");
+	//$log->msg("SERVER (".date("d.m.Y H:i:s",time())."): Server listening on ".$server["ip"].":".$server["port"]."...\r\n");
+	$log->msg("s", "Server gestartet (".$server["ip"].":".$server["port"].")\r\n");
 	return $sock;
 }
 
 function stop_server($sock) {
 	global $server, $log, $client;
 	$server["running"] = false;
-	$log->msg("SERVER (".date("d.m.Y H:i:s",time())."): shutting down server...\r\n");
+	$log->msg("s", "Beende server..\r\n");
 	foreach($client AS $key => $clients) {
 		@socket_close($clients['sock']);
 		unset($clients);
-		$log->msg("CLIENT (".date("d.m.Y H:i:s",time())."): Disconnected Client #".$key."\r\n");
+		$log->msg("c", "Client #".$key." getrennt.\r\n");
 	}
 	@socket_shutdown($sock);
 	@socket_close($sock);
-	$log->msg("SERVER (".date("d.m.Y H:i:s",time())."): Server shut down\r\n");
+	$log->msg("s", "Server wurde beendet.\r\n");
 }
 
 function delete_value($array, $value) {
@@ -99,7 +103,8 @@ function track_print($socket, $x, $ctype="Text/Plain") {
 	unset($socket);
 	unset($client[$i]['sock']);
 	unset($client[$i]);
-	$log->msg("CLIENT (".date("d.m.Y H:i:s",time())."): Disconnected Client #".$i."\r\n");
+	// silence
+	//$log->msg("c", "Client #".$i." getrennt.\r\n");
 }
 
 function http_parse_headers($headers) {
@@ -170,7 +175,7 @@ function formatUpdate($timeago) {
 	return $value;
 }
 
-function formatClient($useragent) {
+function formatClient($useragent){
    	preg_match("/^([^;]*).*$/", $useragent, $client);
 	return $client[1];
 }

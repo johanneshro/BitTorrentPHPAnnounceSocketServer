@@ -53,23 +53,24 @@ while($server["running"]){
 	$ready = @socket_select($read, $write = NULL, $except = NULL, $tv_sec = NULL);
 
 	if($ready === false)
-		$log->msg("ERROR (".date("d.m.Y H:i:s",time())."): Can't select socket! Reason: ".socket_strerror($ready)."\r\n",true);
+		$log->msg("e", "Can't select socket! Reason: ".socket_strerror($ready)."\r\n",true);
 
 	if(in_array($sock, $read)) {
 		for($i = 0; $i<$server["max_clients"]; $i++) {
 			if(!isset($client[$i]['sock'])) {
 				if(($client[$i]['sock'] = @socket_accept($sock)) < 0) {
-					$log->msg("ERROR (".date("d.m.Y H:i:s",time())."): Can't accept socket! Reason: ".socket_strerror($client[$i]['sock'])."\r\n",true);
+					$log->msg("e", "Can't accept socket! Reason: ".socket_strerror($client[$i]['sock'])."\r\n",true);
 				} else {
 					@socket_set_option($client[$i]['sock'], SOL_SOCKET, SO_REUSEADDR, 1);
 					@socket_getpeername($client[$i]['sock'], $ip, $port);
-					$log->msg("CLIENT (".date("d.m.Y H:i:s",time())."): New Client #".$i." connected: ".$ip.":".$port."\r\n");
+					// silence
+					//$log->msg("c", "Client #".$i." verbunden: ".$ip.":".$port."\r\n");
 					$hits++;
 				}
 				break;
 			}
 			elseif($i == $server["max_clients"] - 1)
-				track_print($client[$i]['sock'], "Too many Clients!");
+				track_print($client[$i]['sock'], "Zu viele Clients!");
 		}
 		if(--$ready <= 0)
 			continue;
@@ -98,7 +99,7 @@ while($server["running"]){
 
 			// anfrage loggen
 			if(count($_GET) > 0){
-				$log_get = @fopen($logfile["directory"]."/".$logfile["request_pre"]."_".date("Y_m_d",time()).".".$logfile[extension],"a");
+				$log_get = @fopen($logfile["directory"]."/".$logfile["request_pre"]."_".date("Y_m_d",time()).".".$logfile["extension"],"a");
 				if($log_get) {
 					@fwrite($log_get,var_export($_GET,true)."\n");
 					@fclose($log_get);
@@ -167,7 +168,7 @@ while($server["running"]){
 						}
 						unset($db[$info_hash]);
 					}
-					$log->msg("CLIENT (".date("d.m.Y H:i:s",time())."): IP: ".$ip." Nick: " . $user_info["username"] . " -> Announce -> Peer_ID: ".$peer_id." -> Torrentname: \"" . $torrent_info["name"] . "\", id: \"" . $torrent_info["id"] . "\", hash \"".$info_hash."\"\r\n");
+					$log->msg("c", $user_info["username"]." (".$ip.")(".$peer_id.") verbunden. ".$torrent_info["name"]." (".$torrent_info["id"].")(".$info_hash.")\r\n");
 					track_print($client[$i]['sock'], track(array()));
 				}else{
 					if(!array_key_exists($info_hash, $db)) {
@@ -219,23 +220,13 @@ while($server["running"]){
 						$leecher++;
 					}
 					
-					$log->msg("CLIENT (".date("d.m.Y H:i:s",time())."): IP: ".$ip." Nick: " . $user_info["username"] . " -> Announce -> Peer_ID: ".$peer_id." -> Torrentname: \"" . $torrent_info["name"] . "\", id: \"" . $torrent_info["id"] . "\", hash \"".$info_hash."\"\r\n");
+					$log->msg("c", $user_info["username"]." (".$ip.")(".$peer_id.") verbunden. ".$torrent_info["name"]." (".$torrent_info["id"].")(".$info_hash.")\r\n");
 					track_print($client[$i]['sock'], track($peers, $seeder, $leecher, $compact));
 					unset($peers);
 				}
 			// Tracker Ende
 			}elseif(isset($split_status[1]) && substr($split_status[1],0,7) == "/scrape"){
-				// scrape
-				/*
-				$r = "d" . benc_str("files") . "d";
-				$r .= "20:" . hash_pad($row["info_hash"]) . "d" .
-					benc_str("complete") . "i" . $row["seeders"] . "e" .
-					benc_str("downloaded") . "i" . $row["times_completed"] . "e" .
-					benc_str("incomplete") . "i" . $row["leechers"] . "e" .
-					"e";
-				$r .= "ee";
-				*/
-				//
+				track_print($client[$i]['sock'], $nv->GetScrapeString(checkGET("info_hash", true)));
 			}elseif(isset($split_status[1]) && substr($split_status[1],0,7) == "/status"){
 				track_print($client[$i]['sock'], "Started: ".date("d.m.Y H:i:s",$started)."\nHits: ".$hits."\nClients: ".count($client));
 			}elseif(isset($split_status[1]) && substr($split_status[1],0,5) == "/kill"){
@@ -293,7 +284,8 @@ while($server["running"]){
 				@socket_close($client[$i]['sock']);
 				unset($client[$i]['sock']);
 				unset($client[$i]);
-				$log->msg("CLIENT (".date("d.m.Y H:i:s",time())."): Disconnected Client #".$i."\r\n");
+				// silence
+				//$log->msg("c", "Client #".$i." getrennt.\r\n");
 			}
 		}
 	}

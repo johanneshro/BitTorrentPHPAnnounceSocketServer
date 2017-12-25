@@ -16,24 +16,46 @@ class log
 		$temp = "WRITE: ".str_replace("\n","\r\n",$msg);
 		return $temp;
 	}
+	
+	private function LogCase($c = "s"){
+		switch($c){
+			case "s":
+				$r = "SERVER";
+				break;
+			case "c":
+				$r = "CLIENT";
+				break;
+			case "e":
+				$r = "ERROR";
+				break;
+		}
+		return $r;
+	}
 
-	public function msg($msg, $stop=false, $print=true) {
+	public function msg($lc, $msg, $stop=false, $print=true) {
 		$open = @fopen($this->logfile, "ab");
 		if($open) {
 			fwrite($open, $msg);
 			fclose($open);
 		} else {
-			die("ERROR (".date("d.m.Y H:i:s",time())."): logfile doesn't exist");
+			die($this->LogCase("e") . $this->GetLogTime(). "logfile doesn't exist");
 		}
 
 		if($print) {
-			print trim($msg)."\n";
+			print $this->LogCase($lc) . $this->GetLogTime() . trim($msg)."\n";
 		}
 
 		if($stop) {
-			$this->msg("SERVER (".date("d.m.Y H:i:s",time())."): Server stopped ...\r\n");
+			$this->msg($this->LogCase("s") . $this->GetLogTime(). "Server stopped ...\r\n");
 			exit;
 		}
+	}
+	
+	public function GetLogTime($full = false){
+		if($full)
+			return " (" . date("d.m.Y H:i:s",time()) . "): ";
+		else
+			return " (" . date("H:i:s",time()) . "): ";
 	}
 }
 

@@ -103,8 +103,17 @@ class nv
 		
 	}
 	
-	// $query = "SELECT info_hash, times_completed, seeders, leechers FROM torrents WHERE " . hash_where("info_hash", unesc($_GET["info_hash"]));
-	public function GetScrapeData(){
+	public function GetScrapeString($hash){
+		$hhash = bin2hex($hash);
+		$qry = $this->con->prepare("SELECT times_completed, seeders, leechers FROM torrents WHERE info_hash = :hash LIMIT 1");
+		$qry->bindParam(':hash', $hhash, PDO::PARAM_STR);
+		$qry->execute();
+		if($qry->rowCount())
+			$row = $qry->Fetch(PDO::FETCH_ASSOC);
+		else
+			return false;
+		$r = "d5:filesd20:".str_pad($hash, 20)."d8:completei".$row["seeders"]."e10:downloadedi".$row["times_completed"]."e10:incompletei".$row["leechers"]."eeee";
+		return $r;
 	}
 	
 	//$res = mysql_query("SELECT passkey,id FROM users WHERE id=$userid AND enabled = 'yes'");
