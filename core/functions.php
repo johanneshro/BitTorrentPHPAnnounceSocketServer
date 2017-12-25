@@ -39,28 +39,6 @@ function delete_value($array, $value) {
 	return true;
 }
 
-function files() {
-	global $extern, $log;
-	$array = array();
-	$extensions = explode('|', $extern["extensions"]);
-	if(@is_dir($extern["directory"])) {
-		if($handle = @opendir($extern["directory"])) {
-			while(false !== ($file = @readdir($handle))) {
-				$pieces = explode('.', $file);
-				if($file != "." && $file != ".." && !@is_dir($extern["directory"]."/".$file) && in_array(strtolower(end($pieces)), $extensions)) {
-					$fp = @fopen($extern["directory"]."/".$file, "rb");
-					$contents = @fread($fp, @filesize($extern["directory"]."/".$file));
-					@fclose($fp);
-					$array[$file] = $contents;
-					$log->msg("SERVER (".date("d.m.Y H:i:s",time())."): Cache -> $file (".@filesize($extern["directory"]."/".$file)." Bytes)\r\n");
-				}
-			}
-			@closedir($handle);
-		}
-	}
-	return $array;
-}
-
 function track($list, $complete=0, $incomplete=0, $compact=false) {
 	global $_GET;
 	if(is_string($list)) {
@@ -86,19 +64,19 @@ function track($list, $complete=0, $incomplete=0, $compact=false) {
 	return $response;
 }
 
-function checkGET($key, $strlen_check=false) {
+function checkGET($key, $strlen_check=false){
 	global $_GET, $client, $i;
-	if(isset($client[$i]['sock'])) {
-		if(!isset($_GET[$key])) {
+	if(isset($client[$i]['sock'])){
+		if(!isset($_GET[$key])){
 			track_print($client[$i]['sock'], track("Missing key: " . $key));
 			return false;
-		}elseif(!is_string($_GET[$key])) {
+		}elseif(!is_string($_GET[$key])){
 			track_print($client[$i]['sock'], track("Invalid types on one or more arguments"));
 			return false;
-		}elseif($strlen_check && strlen($_GET[$key]) != 20) {
+		}elseif($strlen_check && strlen($_GET[$key]) != 20){
 			track_print($client[$i]['sock'], track("Invalid length on ".$key." argument"));
 			return false;
-		}elseif(strlen($_GET[$key]) > 128) {
+		}elseif(strlen($_GET[$key]) > 128){
 			track_print($client[$i]['sock'], track("Argument ".$key." is too large to handle"));
 			return false;
 		}

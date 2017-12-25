@@ -28,26 +28,79 @@ class nv
 		$this->pdonvtracker = "http://" . $url . ":" . $port;
 	}
 	
-	public function GetUsernameByPasskey($passkey){
+	public function GetUserDataByPasskey($passkey){
 		$passkey = hex2bin($passkey);
-		$qry = $this->con->prepare("SELECT username FROM users WHERE passkey= :pk");
+		$qry = $this->con->prepare("SELECT id, username FROM users WHERE passkey= :pk");
 		$qry->bindParam(':pk', $passkey, PDO::PARAM_STR);
 		$qry->execute();
-		$data = $qry->Fetch(PDO::FETCH_ASSOC);
-		return $data["username"];
+		if($qry->rowCount())
+			$data = $qry->Fetch(PDO::FETCH_ASSOC);
+		else
+			$data = false;
+		return $data;
 	}
 
+	
 	public function GetTorrentDataByInfohash($hash){
 		$hhash = bin2hex($hash);
 		$qry = $this->con->prepare("SELECT id, name, banned, activated, seeders + leechers AS numpeers, UNIX_TIMESTAMP(added) AS ts FROM torrents WHERE info_hash = :hash LIMIT 1");
 		$qry->bindParam(':hash', $hhash, PDO::PARAM_STR);
 		$qry->execute();
-		$data = $qry->Fetch(PDO::FETCH_ASSOC);
+		if($qry->rowCount())
+			$data = $qry->Fetch(PDO::FETCH_ASSOC);
+		else
+			$data = false;
 		return $data;
 	}
 	
-	// $res = mysql_query("SELECT seeder, peer_id, ip, port, uploaded, downloaded, userid FROM peers WHERE torrent = $torrentid AND connectable = 'yes' $limit");
-	public function GetPeers(){
+	public function GetPeers($tid, $tnp, $rsize){
+		if ($tnp > $rsize)
+			$limit = $rsize;
+		else
+			$limit = $tnp;
+		$qry = $this->con->prepare("SELECT seeder, peer_id, ip, port, uploaded, downloaded, userid FROM peers WHERE torrent = :tid AND connectable = 'yes' ORDER BY RAND() LIMIT :limit");
+		$qry->bindParam(':tid', $tid, PDO::PARAM_STR);
+		$qry->bindParam(':limit', $limit, PDO::PARAM_INT);
+		$qry->execute();
+		$data = $qry->FetchAll(PDO::FETCH_ASSOC);
+		return $data;
+	}
+
+	/*$ret = mysql_query("
+	INSERT INTO peers (
+	connectable, 
+	torrent, 
+	peer_id, 
+	ip, 
+	port, 
+	uploaded, 
+	downloaded, 
+	to_go, 
+	started, 
+	last_action, 
+	seeder, 
+	userid, 
+	agent, 
+	uploadoffset, 
+	downloadoffset)
+	VALUES (
+	'$connectable', 
+	$torrentid, 
+	" . sqlesc($peer_id) . ", 
+	" . sqlesc($ip) . ", 
+	$port, 
+	$uploaded, 
+	$downloaded, 
+	$left, 
+	NOW(), 
+	NOW(), 
+	'$seeder', 
+	$userid, 
+	" . sqlesc($agent) . ", 
+	$uploaded, 
+	$downloaded)");*/
+	public function InsertPeer(){
+		
 	}
 	
 	// $query = "SELECT info_hash, times_completed, seeders, leechers FROM torrents WHERE " . hash_where("info_hash", unesc($_GET["info_hash"]));
@@ -60,6 +113,7 @@ class nv
     //if ($passkey != $pkrow["passkey"])
     //    err("Ungueltiger PassKey. Lies das FAQ!");
 	public function CheckPasskey(){
+		
 	}
 
 	//$res = mysql_query("SELECT * FROM `traffic` WHERE `userid`=$userid AND `torrentid`=$torrentid");
@@ -93,6 +147,37 @@ class nv
 		if (get_magic_quotes_gpc())
 			return stripslashes($x);
 		return $x;
-	} 
+	}
+	
+	public function getlandingpage(){
+		$page = "+-------------------------------+------------------------------------------------------------------+\n";
+		$page .= "| pdonvtracker's                | https://github.com/kaitokid222/pdonvtracker                      |\n";
+		$page .= "| Socket-Announce by Stifler    | https://github.com/johanneshro/BitTorrentPHPAnnounceSocketServer |\n";
+		$page .= "| NetVision-Fork by kaitokid    | https://github.com/kaitokid222/BitTorrentPHPAnnounceSocketServer |\n";
+		$page .= "+-------------------------------+------------------------------------------------------------------+\n";
+		$page .= "|    Webcommands                |\n";
+		$page .= "|        /db     (as Operator)  |\n";
+		$page .= "|        /kill   (as Operator)  |\n";
+		$page .= "|        /status                |\n";
+		$page .= "+-------------------------------+\n";
+		return $page;
+	}
+
+	public function portblacklisted($port){
+		if($port >= 411 && $port <= 413)
+			return true;
+		if($port >= 6881 && $port <= 6889)
+			return true;
+		if($port == 1214)
+			return true;
+		if($port >= 6346 && $port <= 6347)
+			return true;
+		if($port == 4662)
+			return true;
+		if($port == 6699)
+			return true;
+		return false;
+	}
+
 }
 ?>
