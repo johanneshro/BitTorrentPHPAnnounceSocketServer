@@ -28,7 +28,6 @@ $nv = new nv($pdo);
 $nv->SetTrackerPath("localhost");
 
 $sock = start_server();
-$plugins_loaded = array();
 $files = files();
 $client = array();
 $started = time();
@@ -184,7 +183,9 @@ while($server["running"]) {
 				$port = checkGET("port");
 				$passkey = checkGET("passkey");
 				$username = $nv->GetUsernameByPasskey($passkey);
-				if(!$info_hash || !$peer_id || !$port) break;
+				$torrent_info = $nv->GetTorrentDataByInfohash($info_hash);
+				if(!$info_hash || !$peer_id || !$port)
+					break;
 				if(isset($port) && (!ctype_digit($port) || $port < 1 || $port > 65535)) {
 					track_print($client[$i]['sock'], track("Invalid client port"));
 					break;
@@ -197,13 +198,13 @@ while($server["running"]) {
 							delete_value($info_hash, $peer_id);
 						}
 					}
-					if(count($db[$info_hash]) == 0) {
+					if(!isset($db[$info_hash])) {
 						if(in_array($info_hash, $db["torrents"])) {
 							delete_value("torrents", $info_hash);
 						}
 						unset($db[$info_hash]);
 					}
-					$log->msg("CLIENT (".date("d.m.Y H:i:s",time())."): IP: ".$ip." Nick: " . $username . " -> Announce -> Peer_ID: ".$peer_id." -> ".$info_hash."\r\n");
+					$log->msg("CLIENT (".date("d.m.Y H:i:s",time())."): IP: ".$ip." Nick: " . $username . " -> Announce -> Peer_ID: ".$peer_id." -> Torrentname: \"" . $torrent_info["name"] . "\", id: \"" . $torrent_info["id"] . "\", hash \"".$info_hash."\"\r\n");
 					track_print($client[$i]['sock'], track(array()));
 				} else {
 					if(!array_key_exists($info_hash, $db)) {
@@ -220,6 +221,7 @@ while($server["running"]) {
 					$left = (isset($_GET["left"])) ? intval($_GET["left"]) : 0;
 					$is_seed = ($left == 0) ? 1 : 0;
 					$numwant = (isset($_GET["numwant"])) ? intval($_GET["numwant"]) : 50;
+					// get peercount
 					$compact = (isset($_GET["compact"]) && intval($_GET["compact"]) == 1) ? true : false;
 					$db[$map] = (isset($db[$map]) && count($db[$map]) > 0) ? array_replace($db[$map], array("ip" => $ip, "port" => $port, "seed" => $is_seed, "downloaded" => $downloaded, "uploaded" => $uploaded, "left" => $left, "date" => time(), "useragent" => $useragent)) : array("ip" => $ip, "port" => $port, "seed" => $is_seed, "downloaded" => $downloaded, "uploaded" => $uploaded, "left" => $left, "date" => time(), "useragent" => $useragent);
 					$pid_list = $db[$info_hash];
@@ -253,7 +255,7 @@ while($server["running"]) {
 						$leecher++;
 					}
 					
-					$log->msg("CLIENT (".date("d.m.Y H:i:s",time())."): IP: ".$ip." Nick: " . $username . " -> Announce -> Peer_ID: ".$peer_id." -> ".$info_hash."\r\n");
+					$log->msg("CLIENT (".date("d.m.Y H:i:s",time())."): IP: ".$ip." Nick: " . $username . " -> Announce -> Peer_ID: ".$peer_id." -> Torrentname: \"" . $torrent_info["name"] . "\", id: \"" . $torrent_info["id"] . "\", hash \"".$info_hash."\"\r\n");
 					track_print($client[$i]['sock'], track($peers, $seeder, $leecher, $compact));
 					unset($peers);
 				}

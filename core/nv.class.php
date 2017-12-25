@@ -37,8 +37,13 @@ class nv
 		return $data["username"];
 	}
 
-	// ann L:147: $res = mysql_query("SELECT id, name, category, banned, activated, seeders + leechers AS numpeers, UNIX_TIMESTAMP(added) AS ts FROM torrents WHERE " . hash_where("info_hash", $info_hash));
 	public function GetTorrentDataByInfohash($hash){
+		$hhash = bin2hex($hash);
+		$qry = $this->con->prepare("SELECT id, name, banned, activated, seeders + leechers AS numpeers, UNIX_TIMESTAMP(added) AS ts FROM torrents WHERE info_hash = :hash LIMIT 1");
+		$qry->bindParam(':hash', $hhash, PDO::PARAM_STR);
+		$qry->execute();
+		$data = $qry->Fetch(PDO::FETCH_ASSOC);
+		return $data;
 	}
 	
 	// $res = mysql_query("SELECT seeder, peer_id, ip, port, uploaded, downloaded, userid FROM peers WHERE torrent = $torrentid AND connectable = 'yes' $limit");
@@ -79,9 +84,15 @@ class nv
 
 
 	// ann L:192: $res = mysql_query("SELECT seeder, peer_id, ip, port, uploaded, downloaded, userid FROM peers WHERE torrent = $torrentid AND " . hash_where("peer_id", $peer_id));
-	public function hash_where($name, $hash){
+	private function hash_where($name, $hash){
 		$shhash = preg_replace('/ *$/s', "", $hash);
 		return "(" . $name . " = '" . $hash . "' OR " . $name . " = '" . $shhash . "')";
 	}
+	
+	private function unesc($x){
+		if (get_magic_quotes_gpc())
+			return stripslashes($x);
+		return $x;
+	} 
 }
 ?>
