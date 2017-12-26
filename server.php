@@ -156,73 +156,24 @@ while($server["running"]){
 				$map = $info_hash.":".$peer_id;
 
 				if(isset($_GET["event"]) && $_GET["event"] === "stopped"){
-					unset($db[$map]);
-					if(isset($db[$info_hash])) {
-						if(in_array($peer_id, $db[$info_hash])) {
-							delete_value($info_hash, $peer_id);
-						}
-					}
-					if(!isset($db[$info_hash])) {
-						if(in_array($info_hash, $db["torrents"])) {
-							delete_value("torrents", $info_hash);
-						}
-						unset($db[$info_hash]);
-					}
-					$log->msg("c", $user_info["username"]." (".$ip.")(".$peer_id.") verbunden. ".$torrent_info["name"]." (".$torrent_info["id"].")(".$info_hash.")\r\n");
+					$nv->DeletePeer($torrent_info["id"], $ip);
+					$log->msg("c", $user_info["username"]." (".$user_info["id"].")(".$ip.")(".$peer_id.") getrennt. ".$torrent_info["name"]." (".$torrent_info["id"].")(".$info_hash.")\r\n");
 					track_print($client[$i]['sock'], track(array()));
+				}elseif(isset($_GET["event"]) && $_GET["event"] === "completed"){
 				}else{
-					if(!array_key_exists($info_hash, $db)) {
-						$db[$info_hash] = array();
-					}
-					if(!in_array($info_hash, $db["torrents"])) {
-						$db["torrents"][] = $info_hash;
-					}
-					if(!in_array($peer_id, $db[$info_hash])) {
-						$db[$info_hash][] = $peer_id;
-					}
 					$downloaded = (isset($_GET["downloaded"])) ? intval($_GET["downloaded"]) : 0;
 					$uploaded = (isset($_GET["uploaded"])) ? intval($_GET["uploaded"]) : 0;
 					$left = (isset($_GET["left"])) ? intval($_GET["left"]) : 0;
+					$nv->InsertPeer($torrent_info["id"], $peer_id, $ip, $port, $uploaded, $downloaded, $left, $user_info["id"], $useragent);
+
 					$is_seed = ($left == 0) ? 1 : 0;
 					$numwant = (isset($_GET["numwant"])) ? intval($_GET["numwant"]) : 50;
-					// $peers_arr = $nv->GetPeers($torrent_info["id"], $torrent_info["numpeers"], $numwant);
 					$compact = (isset($_GET["compact"]) && intval($_GET["compact"]) == 1) ? true : false;
-					$db[$map] = (isset($db[$map]) && count($db[$map]) > 0) ? array_replace($db[$map], array("ip" => $ip, "port" => $port, "seed" => $is_seed, "downloaded" => $downloaded, "uploaded" => $uploaded, "left" => $left, "date" => time(), "useragent" => $useragent)) : array("ip" => $ip, "port" => $port, "seed" => $is_seed, "downloaded" => $downloaded, "uploaded" => $uploaded, "left" => $left, "date" => time(), "useragent" => $useragent);
-					$pid_list = $db[$info_hash];
-					$peers = array();
-					$count = $seeder = $leecher = 0;
-					foreach($pid_list AS $pid) {
-						if($pid == $peer_id)
-							continue;
-						$temp_map = $info_hash.":".$pid;
-						$temp = $db[$temp_map];
-						if(!$temp["ip"]) {
-							if(in_array($pid, $db[$info_hash])) {
-								delete_value($info_hash, $pid);
-							}
-						} else {
-							if($temp["seed"]) {
-								$seeder++;
-							} else {
-								$leecher++;
-							}
-							if($temp["seed"] && $is_seed)
-								continue;
-							if($count < $numwant) {
-								$peers[$pid] = array("ip" => $temp["ip"], "port" => $temp["port"]);
-								$count++;
-							}
-						}
-					}
-					if($is_seed) {
-						$seeder++;
-					} else {
-						$leecher++;
-					}
+					$pdata = $nv->GetPeers($torrent_info["id"], $numwant, $ip);
 					
-					$log->msg("c", $user_info["username"]." (".$ip.")(".$peer_id.") verbunden. ".$torrent_info["name"]." (".$torrent_info["id"].")(".$info_hash.")\r\n");
-					track_print($client[$i]['sock'], track($peers, $seeder, $leecher, $compact));
-					unset($peers);
+					$log->msg("c", $user_info["username"]." (".$user_info["id"].")(".$ip.")(".$peer_id.") verbunden. ".$torrent_info["name"]." (".$torrent_info["id"].")(".$info_hash.")\r\n");
+					track_print($client[$i]['sock'], track($pdata["peers"], $pdata["seeders"], $pdata["leechers"], $compact));
+					unset($pdata);
 				}
 			// Tracker Ende
 			}elseif(isset($split_status[1]) && substr($split_status[1],0,7) == "/scrape"){

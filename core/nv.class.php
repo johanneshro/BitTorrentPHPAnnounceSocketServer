@@ -27,8 +27,29 @@ class nv
 	public function SetTrackerPath($url = "", $port = 80){
 		$this->pdonvtracker = "http://" . $url . ":" . $port;
 	}
+
+	private function CheckPasskey($pk){
+		if(strlen($pk) % 2 != 0)
+			return false;
+		return true;
+	}
 	
+	private function IsConnectable($ip, $port){
+		if(isset($ip, $port) && !$this->portblacklisted($port)){
+            $sockres = @fsockopen($ip, $port, $errno, $errstr, 5);
+			if(!$sockres)
+				return false;
+			else{
+				@fclose($sockres);
+				return true;
+			}
+		}else
+			return false;
+	}
+
 	public function GetUserDataByPasskey($passkey){
+		if(!$this->CheckPasskey($passkey))
+			return false;
 		$passkey = hex2bin($passkey);
 		$qry = $this->con->prepare("SELECT id, username FROM users WHERE passkey= :pk");
 		$qry->bindParam(':pk', $passkey, PDO::PARAM_STR);
@@ -53,78 +74,74 @@ class nv
 		return $data;
 	}
 	
-	public function GetPeers($tid, $tnp, $rsize){
-		if ($tnp > $rsize)
-			$limit = $rsize;
-		else
-			$limit = $tnp;
-		$qry = $this->con->prepare("SELECT seeder, peer_id, ip, port, uploaded, downloaded, userid FROM peers WHERE torrent = :tid AND connectable = 'yes' ORDER BY RAND() LIMIT :limit");
+	public function GetPeers($tid, $rsize, $ownip){
+		$qry = $this->con->prepare("SELECT seeder, peer_id, ip, port FROM peers WHERE torrent = :tid AND connectable = 'yes' AND ip != :ownip ORDER BY RAND() LIMIT :limit");
 		$qry->bindParam(':tid', $tid, PDO::PARAM_STR);
-		$qry->bindParam(':limit', $limit, PDO::PARAM_INT);
+		$qry->bindParam(':limit', $rsize, PDO::PARAM_INT);
+		$qry->bindParam(':ownip', $ownip, PDO::PARAM_STR);
 		$qry->execute();
 		$data = $qry->FetchAll(PDO::FETCH_ASSOC);
-		return $data;
+		$r["seeders"] = 0;
+		$r["leechers"] = 0;
+		$r["peers"] = array();
+		foreach($data as $peer){
+			$r["peers"][$peer["peer_id"]] = array("ip" => $peer["ip"], "port" => $peer["port"]);
+			if($peer["seeder"] == "yes")
+				$r["seeders"]++;
+			else
+				$r["leechers"]++;
+		}
+		return $r;
 	}
 
-	/*$ret = mysql_query("
-	INSERT INTO peers (
-	connectable, 
-	torrent, 
-	peer_id, 
-	ip, 
-	port, 
-	uploaded, 
-	downloaded, 
-	to_go, 
-	started, 
-	last_action, 
-	seeder, 
-	userid, 
-	agent, 
-	uploadoffset, 
-	downloadoffset)
-	VALUES (
-	'$connectable', 
-	$torrentid, 
-	" . sqlesc($peer_id) . ", 
-	" . sqlesc($ip) . ", 
-	$port, 
-	$uploaded, 
-	$downloaded, 
-	$left, 
-	NOW(), 
-	NOW(), 
-	'$seeder', 
-	$userid, 
-	" . sqlesc($agent) . ", 
-	$uploaded, 
-	$downloaded)");*/
-	public function InsertPeer(){
-		
+	public function InsertPeer($torrentid, $peer_id, $ip, $port, $uploaded, $downloaded, $left, $userid, $agent){
+		$connectable = ($this->IsConnectable($ip, $port)) ? "yes" : "no";
+		$seeder = ($left == 0) ? "yes" : "no";
+		$qry = $this->con->prepare("INSERT INTO peers (connectable, torrent, peer_id, ip, port, uploaded, downloaded, to_go, started, last_action, seeder, userid, agent, uploadoffset, downloadoffset)VALUES (:connectable, :tid, :pid, :ip, :port, :uploaded, :downloaded, :left, NOW(), NOW(), :seeder, :uid, :agent, :uldd, :dldd)");
+		$qry->bindParam(':connectable', $connectable, PDO::PARAM_STR);
+		$qry->bindParam(':tid', $torrentid, PDO::PARAM_INT);
+		$qry->bindParam(':pid', $peer_id, PDO::PARAM_STR);
+		$qry->bindParam(':ip', $ip, PDO::PARAM_STR);
+		$qry->bindParam(':port', $port, PDO::PARAM_INT);
+		$qry->bindParam(':uploaded', $uploaded, PDO::PARAM_INT);
+		$qry->bindParam(':downloaded', $downloaded, PDO::PARAM_INT);
+		$qry->bindParam(':left', $left, PDO::PARAM_INT);
+		$qry->bindParam(':seeder', $seeder, PDO::PARAM_STR);
+		$qry->bindParam(':uid', $userid, PDO::PARAM_INT);
+		$qry->bindParam(':agent', $agent, PDO::PARAM_STR);
+		$qry->bindParam(':uldd', $uploaded, PDO::PARAM_INT);
+		$qry->bindParam(':dldd', $downloaded, PDO::PARAM_INT);
+		$qry->execute();
+		if($qry->rowCount())
+			return true;
+		else
+			return false;
+	}
+	
+	public function DeletePeer($torrentid, $ip){
+		$qry = $this->con->prepare("DELETE FROM peers WHERE torrent = :tid AND ip = :ip LIMIT 1");
+		$qry->bindParam(':tid', $torrentid, PDO::PARAM_STR);
+		$qry->bindParam(':ip', $ip, PDO::PARAM_STR);
+		$qry->execute();
+		if($qry->rowCount())
+			return true;
+		else
+			return false;
 	}
 	
 	public function GetScrapeString($hash){
 		$hhash = bin2hex($hash);
-		$qry = $this->con->prepare("SELECT times_completed, seeders, leechers FROM torrents WHERE info_hash = :hash LIMIT 1");
+		$qry = $this->con->prepare("SELECT times_completed, leechers, seeders FROM torrents WHERE info_hash = :hash LIMIT 1");
 		$qry->bindParam(':hash', $hhash, PDO::PARAM_STR);
 		$qry->execute();
 		if($qry->rowCount())
 			$row = $qry->Fetch(PDO::FETCH_ASSOC);
 		else
 			return false;
-		$r = "d5:filesd20:".str_pad($hash, 20)."d8:completei".$row["seeders"]."e10:downloadedi".$row["times_completed"]."e10:incompletei".$row["leechers"]."eeee";
+		$r = "d5:filesd20:".$hash."d8:completei".$row["seeders"]."e10:downloadedi".$row["times_completed"]."e10:incompletei".$row["leechers"]."eeee";
 		return $r;
 	}
 	
-	//$res = mysql_query("SELECT passkey,id FROM users WHERE id=$userid AND enabled = 'yes'");
-    //$pkrow = mysql_fetch_assoc($res);
-    //$passkey = hex2bin($passkey);
-    //if ($passkey != $pkrow["passkey"])
-    //    err("Ungueltiger PassKey. Lies das FAQ!");
-	public function CheckPasskey(){
-		
-	}
-
 	//$res = mysql_query("SELECT * FROM `traffic` WHERE `userid`=$userid AND `torrentid`=$torrentid");
     //if (@mysql_num_rows($res) == 0)
     //    mysql_query("INSERT INTO `traffic` (`userid`,`torrentid`) VALUES ($userid, $torrentid)");
