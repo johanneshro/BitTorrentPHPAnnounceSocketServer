@@ -4,11 +4,13 @@ class log
 {
 	public $logfile = "";
 
-	public function __construct($logfile) {
+	public function __construct() {
+		$logfile["directory"] = "logs";
+		$logfile["extension"] = "txt";
 		if(!is_dir($logfile["directory"])) {
 			@mkdir($logfile["directory"], 0755);
 		}
-		$this->logfile = $logfile["directory"]."/".$logfile["server_pre"]."_".date("Y_m_d",time()).".".$logfile["extension"];
+		$this->logfile = $logfile["directory"]."/log_".date("Y_m_d",time()).".".$logfile["extension"];
 		@fopen($this->logfile, "ab");
 	}
 
@@ -46,7 +48,7 @@ class log
 		}
 
 		if($stop) {
-			$this->msg($this->LogCase("s") . $this->GetLogTime(). "Server stopped ...\r\n");
+			$this->msg($this->LogCase("s") ,$this->GetLogTime(). "Server stopped ...\r\n");
 			exit;
 		}
 	}

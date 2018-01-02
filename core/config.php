@@ -1,21 +1,14 @@
 <?php
 
-$server = array();
+$config_server = array();
 $logfile = array();
-$extern = array();
 
 // Server
-$server["ip"] = "localhost";
-$server["port"] = 81;
-$server["running"] = true;
-$server["admin"] = "admin";
-$server["max_clients"] = 50;
+$config_server["ip"] = "localhost";
+$config_server["port"] = 81;
+$config_server["max_clients"] = 50;
 
 // Log Files
-$logfile["directory"] = "logs";
-$logfile["server_pre"] = "server";
-$logfile["request_pre"] = "request";
-$logfile["extension"] = "txt";
 
 // mysql
 $db_info = array( 
@@ -27,9 +20,4 @@ $db_info = array(
 	"db_charset" => "UTF-8"
 );
 $dsn = ["mysql:host=".$db_info['db_host'].';port='.$db_info['db_port'].';dbname='.$db_info['db_name'],$db_info['db_user'], $db_info['db_pass']];
-
-// Mini-WebServer
-$extern["directory"] = "files";
-$extern["extensions"] = "html|htm|txt";
-
 ?>
