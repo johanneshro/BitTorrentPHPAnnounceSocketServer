@@ -61,11 +61,11 @@ class SocketServer
 					if($input == null){
 							$this->disconnect($i);
 					}else{
-						SocketServer::debug("{$i}@{$this->clients[$i]->ip} --> {$input}");
-						//$input_obj = new Input($input);
-						//$response = new Response($input_obj);
-						//SocketServer::track_print($this->clients[$i]->socket, $response);
-						SocketServer::track_print($this->clients[$i]->socket);
+						SocketServer::debug($i . "@" . $this->clients[$i]->ip . " --> " . $input);
+						$response = new Response($input);
+						$response_str = $response->get_response_string();
+						SocketServer::send($this->clients[$i]->socket, $response_str);
+						SocketServer::disconnect($this->clients[$i]->server_clients_index);
 					}
 				}
 			}
@@ -75,16 +75,16 @@ class SocketServer
 
 	public function disconnect($client_index){
 		$i = $client_index;
-		SocketServer::debug("Verbindung zu Benutzer " . $i . " (" . this->clients[$i]->ip . ":" . $this->clients[$i]->port . ") getrennt");
+		SocketServer::debug("Verbindung zu Benutzer " . $i . " (" . $this->clients[$i]->ip . ":" . $this->clients[$i]->port . ") getrennt");
 		$this->clients[$i]->destroy();
 		unset($this->clients[$i]);			
 	}
 
 	public static function debug($text){
-		echo("{$text}\r\n");
+		echo($text . "\r\n");
 	}
 
-	public static function track_print(&$sock, $x = "d14:failure reason7:defaulte"){
+	public static function send(&$sock, $x){
 		SocketServer::debug("<-- " . $x . "");
 		$header = "HTTP/1.1 200 OK\n";
 		$header .= "Server: PHP Socket Server\n";
@@ -92,7 +92,7 @@ class SocketServer
 		$header .= "Pragma: no-cache\n";
 		$header .= "Connection: close\n\n";
 		$header .= trim($x);
-		return socket_write($sock, $header, strlen($header));
+		@socket_write($sock, $header, strlen($header));
 	}
 
 	function &__get($name){

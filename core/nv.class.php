@@ -27,6 +27,19 @@ class nv
 	public function SetTrackerPath($url = "", $port = 80){
 		$this->pdonvtracker = "http://" . $url . ":" . $port;
 	}
+	
+	public function getip(){
+		$client  = @$_SERVER['HTTP_CLIENT_IP'];
+		$forward = @$_SERVER['HTTP_X_FORWARDED_FOR'];
+		$remote  = $_SERVER['REMOTE_ADDR'];
+		if(filter_var($client, FILTER_VALIDATE_IP))
+			$ip = $client;
+		elseif(filter_var($forward, FILTER_VALIDATE_IP))
+			$ip = $forward;
+		else
+			$ip = $remote;
+		return $ip;
+	}
 
 	private function CheckPasskey($pk){
 		if(strlen($pk) % 2 != 0)
@@ -182,10 +195,18 @@ class nv
 		$page .= "| NetVision-Fork by kaitokid    | https://github.com/kaitokid222/BitTorrentPHPAnnounceSocketServer |\n";
 		$page .= "+-------------------------------+------------------------------------------------------------------+\n";
 		$page .= "|    Webcommands                |\n";
-		$page .= "|        /db     (as Operator)  |\n";
 		$page .= "|        /kill   (as Operator)  |\n";
 		$page .= "|        /status                |\n";
 		$page .= "+-------------------------------+\n";
+		return $page;
+	}
+	
+	public function fakefourzerofour(){
+		$page = "+-------------------------------------------------------------------------------+\n";
+		$page .= "| Redet der mit mir? Callt der mich etwa an? Will der mich ficken?              |\n";
+		$page .= "| Der labert tatsaechlich mit mir, der Pisser, was glaubt der eigentlich?       |\n";
+		$page .= "| Oder was wolltest Du Wichser? Was glaubst Du, wer Du bist, Du scheiss Wichser?|\n";
+		$page .= "+-------------------------------------------------------------------------------+\n";
 		return $page;
 	}
 

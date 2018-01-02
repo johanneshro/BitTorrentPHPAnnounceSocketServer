@@ -7,17 +7,6 @@ define("INTERVAL", 1800);
 define("INTERVAL_MIN", 300);
 define("CLIENT_TIMEOUT", 60);
 
-
-/*
-include("core/server.class.php");
-$server = new SocketServer(null,9001); // Binds to determined IP
-$server->max_clients();
-$server->hook("connect","connect_function"); // On connect does connect_function($server,$client,"");
-$server->hook("disconnect","disconnect_function"); // On disconnect does disconnect_function($server,$client,"");
-$server->hook("input","handle_input"); // When receiving input does handle_input($server,$client,$input);
-$server->infinite_loop(); // starts the loop.
-*/
-
 include("core/config.php");
 include("core/functions.php");
 //include("core/benc.php");
