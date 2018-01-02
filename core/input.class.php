@@ -7,7 +7,12 @@ class Input
 	protected $split_status;
 	protected $method;
 	protected $useragent;
+	protected $info_hash;
+	protected $peer_id;
+	protected $peer_port;
+	protected $passkey;
 	protected $request;
+	protected $request_mode;
 	protected $log;
 
 	public function __construct($input){
@@ -25,10 +30,33 @@ class Input
 		$this->useragent = (isset($this->headerdata["User-Agent"]) && !empty($this->headerdata["User-Agent"])) ? trim($this->headerdata["User-Agent"]) : "";
 		if($this->method != "GET")
 			$this->method = false;
+		if(isset($this->split_status[1]) && substr($this->split_status[1],0,9) == "/announce")
+			$this->request_mode = "announce";
+		elseif(isset($this->split_status[1]) && substr($this->split_status[1],0,7) == "/scrape")
+			$this->request_mode = "scrape";
+		else
+			$this->request_mode = false;
+		$this->info_hash = $this->checkReq("info_hash", true);
+		$this->peer_id = $this->checkReq("peer_id", true);
+		$this->peer_port = $this->checkReq("port");
+		$this->passkey = $this->checkReq("passkey");
 		// anfrage loggen
 		if(count($this->request) > 0){
 			$this->log->msg("c", "REQUEST: ".var_export($this->request,true)."\r\n");
 		}
+		
+	}
+
+	private function checkReq($key, $strlen_check=false){
+		if(!isset($this->request[$key]))
+			return false;
+		elseif(!is_string($this->request[$key]))
+			return false;
+		elseif($strlen_check && strlen($this->request[$key]) != 20)
+			return false;
+		elseif(strlen($this->request[$key]) > 128)
+			return false;
+		return $this->request[$key];
 	}
 
 	private function http_parse_headers($headers){

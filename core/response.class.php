@@ -3,8 +3,10 @@
 class Response
 {
 	protected $input_obj;
+	protected $nv;
 	public function __construct($input_str) {
 		$this->input_obj = new Input($input_str);
+		$this->nv = $GLOBALS["nv"];
 	}
 
 	private function track($list, $complete=0, $incomplete=0, $compact=false) {
@@ -31,11 +33,23 @@ class Response
 		$response = "d8:intervali".INTERVAL."e12:min intervali".INTERVAL_MIN."e8:completei".$complete."e10:incompletei".$incomplete."e5:peers".($compact ? strlen($peers).":".$peers."6:peers6".strlen($peers6).":".$peers6 : "l".$peers."e")."e";
 		return $response;
 	}
+	
 
 	public function get_response_string(){
 		if(isset($this->input_obj)){
 			if($this->input_obj->method !== false){
-				return "d14:failure reason4:worxe";
+				if($this->input_obj->request_mode !== false){
+					if($this->input_obj->request_mode == "announce"){
+					
+					
+					
+						return "";						
+						
+					}elseif($this->input_obj->request_mode == "scrape"){
+						return $this->nv->GetScrapeString($this->input_obj->info_hash);
+					}
+				}else
+					return "d14:failure reason15:invalid request";
 			}else
 				return "d14:failure reason11:methoderrore";
 		}else
