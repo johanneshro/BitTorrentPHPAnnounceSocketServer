@@ -94,6 +94,19 @@ class nv
 		return $r;
 	}
 
+	public function getip(){		
+		$client  = @$_SERVER['HTTP_CLIENT_IP'];		
+		$forward = @$_SERVER['HTTP_X_FORWARDED_FOR'];		
+		$remote  = @$_SERVER['REMOTE_ADDR'];		
+		if(filter_var($client, FILTER_VALIDATE_IP))		
+			$ip = $client;		
+		elseif(filter_var($forward, FILTER_VALIDATE_IP))		
+			$ip = $forward;		
+		else		
+			$ip = $remote;		
+		return $ip;		
+	}
+
 	public function InsertPeer($torrentid, $peer_id, $ip, $port, $uploaded, $downloaded, $left, $userid, $agent){
 		$connectable = ($this->IsConnectable($ip, $port)) ? "yes" : "no";
 		$seeder = ($left == 0) ? "yes" : "no";

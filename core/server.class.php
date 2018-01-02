@@ -3,12 +3,13 @@
 class SocketServer
 {
 	protected $config;
+	public static $debugging = true;
 	protected $master_socket;
 	public $max_clients = 100;
 	public $max_read = 2048;
 	public $clients;
 
-	public function __construct($bind_ip,$port){
+	public function __construct($bind_ip, $port){
 		set_time_limit(0);
 		$this->config["ip"] = $bind_ip;
 		$this->config["port"] = $port;
@@ -80,8 +81,19 @@ class SocketServer
 		unset($this->clients[$i]);			
 	}
 
+	public function set_max_clients($i){
+		$this->max_clients = $i;
+	}
+
+	public static function set_debugging($bool){
+		self::$debugging = $bool;
+	}
+
 	public static function debug($text){
-		echo($text . "\r\n");
+		if(self::$debugging)
+			echo($text . "\r\n");
+		else
+			echo "";
 	}
 
 	public static function send(&$sock, $x){

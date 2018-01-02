@@ -11,12 +11,18 @@ class Input
 	protected $peer_id;
 	protected $peer_port;
 	protected $passkey;
+	protected $downloaded;
+	protected $uploaded;
+	protected $left;
+	protected $is_seed;
+	protected $numwant;
+	protected $compact;
+	protected $no_peer_id;
 	protected $request;
 	protected $request_mode;
-	protected $log;
+	protected $event;
 
 	public function __construct($input){
-		$this->log = new log();
 		$this->o_input = $input;
 		$input = trim($input);
 		$split = explode("\n", $input);
@@ -40,9 +46,18 @@ class Input
 		$this->peer_id = $this->checkReq("peer_id", true);
 		$this->peer_port = $this->checkReq("port");
 		$this->passkey = $this->checkReq("passkey");
+		$this->downloaded = (isset($this->request["downloaded"])) ? intval($this->request["downloaded"]) : 0;
+		$this->uploaded = (isset($this->request["uploaded"])) ? intval($this->request["uploaded"]) : 0;
+		$this->left = (isset($this->request["left"])) ? intval($this->request["left"]) : 0;
+		$this->is_seed = ($this->left == 0) ? 1 : 0;
+		$this->numwant = (isset($this->request["numwant"])) ? intval($this->request["numwant"]) : 50;
+		$this->compact = (isset($this->request["compact"]) && intval($this->request["compact"]) == 1) ? true : false;
+		$this->no_peer_id = (isset($this->request["no_peer_id"]) && intval($this->request["no_peer_id"]) == 1) ? 1 : 0;
+		$this->event = (isset($this->request["event"])) ? $this->request["event"] : false;
+
 		// anfrage loggen
 		if(count($this->request) > 0){
-			$this->log->msg("c", "REQUEST: ".var_export($this->request,true)."\r\n");
+			SocketServer::debug("REQUEST: ".var_export($this->request,true));
 		}
 		
 	}

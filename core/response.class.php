@@ -10,7 +10,6 @@ class Response
 	}
 
 	private function track($list, $complete=0, $incomplete=0, $compact=false) {
-		global $_GET;
 		if(is_string($list)) {
 			return "d14:failure reason".strlen($list).":".$list."e";
 		}
@@ -24,13 +23,13 @@ class Response
 					$peers6[] = pack("H32n", $peer["ip"], $peer["port"]);
 				}
 			} else {
-				$pid = (!isset($_GET["no_peer_id"])) ? "7:peer id".strlen($peer_id).":".$peer_id : "";
+				$pid = ($this->input_obj->no_peer_id == 1) ? "7:peer id".strlen($peer_id).":".$peer_id : "";
 				$peers[] = "d2:ip".strlen($peer["ip"]).":".$peer["ip"].$pid."4:porti".$peer["port"]."ee";
 			}
 		}
 		$peers = (count($peers) > 0) ? @implode($peers) : "";
 		$peers6 = (count($peers6) > 0) ? @implode($peers6) : "";
-		$response = "d8:intervali".INTERVAL."e12:min intervali".INTERVAL_MIN."e8:completei".$complete."e10:incompletei".$incomplete."e5:peers".($compact ? strlen($peers).":".$peers."6:peers6".strlen($peers6).":".$peers6 : "l".$peers."e")."e";
+		$response = "d8:intervali1800e12:min intervali30e8:completei".$complete."e10:incompletei".$incomplete."e5:peers".($compact ? strlen($peers).":".$peers."6:peers6".strlen($peers6).":".$peers6 : "l".$peers."e")."e";
 		return $response;
 	}
 	
@@ -40,11 +39,12 @@ class Response
 			if($this->input_obj->method !== false){
 				if($this->input_obj->request_mode !== false){
 					if($this->input_obj->request_mode == "announce"){
-					
-					
-					
-						return "";						
-						
+						$user_info = $this->nv->GetUserDataByPasskey($this->input_obj->passkey);
+						$torrent_info = $this->nv->GetTorrentDataByInfohash($this->input_obj->info_hash);
+						$this->nv->InsertPeer($torrent_info["id"], $this->input_obj->peer_id, $this->nv->getip(), $this->input_obj->peer_port, $this->input_obj->uploaded, $this->input_obj->downloaded, $this->input_obj->left, $user_info["id"], $this->input_obj->useragent);
+						$pdata = $this->nv->GetPeers($torrent_info["id"], $this->input_obj->numwant, $this->nv->getip());
+						$resp = $this->track($pdata["peers"], $pdata["seeders"], $pdata["leechers"], $this->input_obj->compact);
+						return $resp;
 					}elseif($this->input_obj->request_mode == "scrape"){
 						return $this->nv->GetScrapeString($this->input_obj->info_hash);
 					}
