@@ -8,6 +8,8 @@ class SocketServer
 	public $max_clients = 100;
 	public $max_read = 2048;
 	public $clients;
+	public $rt;
+	public static $rtr;
 
 	public function __construct($bind_ip, $port){
 		set_time_limit(0);
@@ -46,6 +48,8 @@ class SocketServer
 			for($i = 0; $i < $this->max_clients; $i++){
 				if(empty($this->clients[$i])){
 					$temp_sock = $this->master_socket;
+					if(self::$debugging)
+						$this->rt = new runtime();
 					$this->clients[$i] = new Client($this->master_socket,$i);
 					break;
 				}elseif($i == ($this->max_clients-1)){
@@ -65,6 +69,7 @@ class SocketServer
 						//SocketServer::debug($i . "@" . $this->clients[$i]->ip . " --> " . $input);
 						$response = new Response($input);
 						$response_str = $response->get_response_string();
+						self::$rtr = $this->rt->get_result();
 						SocketServer::send($this->clients[$i]->socket, $response_str);
 						SocketServer::disconnect($this->clients[$i]->server_clients_index);
 					}
@@ -79,7 +84,7 @@ class SocketServer
 		SocketServer::debug("Verbindung zu Benutzer (" . $this->clients[$i]->ip . ":" . $this->clients[$i]->port . ") getrennt");
 		SocketServer::debug("----------------------------------------------------------");
 		$this->clients[$i]->destroy();
-		unset($this->clients[$i]);			
+		unset($this->clients[$i]);
 	}
 
 	public function set_max_clients($i){
@@ -98,7 +103,7 @@ class SocketServer
 	}
 
 	public static function send(&$sock, $x){
-		SocketServer::debug("<-- " . $x);
+		SocketServer::debug("<-- " . $x . self::$rtr);
 		$header = "HTTP/1.1 200 OK\n";
 		$header .= "Server: PHP Socket Server\n";
 		$header .= "Content-Type: Text/Plain\n";

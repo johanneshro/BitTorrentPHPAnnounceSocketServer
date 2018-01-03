@@ -146,7 +146,6 @@ class nv
 		$qry->execute();
 		if(!$qry->rowCount())
 			return false;
-
 		if($left == 0)
 			$qry = $this->con->prepare("UPDATE torrents SET seeders = seeders - 1 WHERE id = :tid");
 		else
