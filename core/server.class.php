@@ -62,7 +62,7 @@ class SocketServer
 					if($input == null){
 							$this->disconnect($i);
 					}else{
-						SocketServer::debug($i . "@" . $this->clients[$i]->ip . " --> " . $input);
+						//SocketServer::debug($i . "@" . $this->clients[$i]->ip . " --> " . $input);
 						$response = new Response($input);
 						$response_str = $response->get_response_string();
 						SocketServer::send($this->clients[$i]->socket, $response_str);
@@ -76,7 +76,8 @@ class SocketServer
 
 	public function disconnect($client_index){
 		$i = $client_index;
-		SocketServer::debug("Verbindung zu Benutzer " . $i . " (" . $this->clients[$i]->ip . ":" . $this->clients[$i]->port . ") getrennt");
+		SocketServer::debug("Verbindung zu Benutzer (" . $this->clients[$i]->ip . ":" . $this->clients[$i]->port . ") getrennt");
+		SocketServer::debug("----------------------------------------------------------");
 		$this->clients[$i]->destroy();
 		unset($this->clients[$i]);			
 	}
@@ -97,7 +98,7 @@ class SocketServer
 	}
 
 	public static function send(&$sock, $x){
-		SocketServer::debug("<-- " . $x . "");
+		SocketServer::debug("<-- " . $x);
 		$header = "HTTP/1.1 200 OK\n";
 		$header .= "Server: PHP Socket Server\n";
 		$header .= "Content-Type: Text/Plain\n";

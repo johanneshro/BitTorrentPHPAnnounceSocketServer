@@ -14,8 +14,8 @@ class Response
 			return "d14:failure reason".strlen($list).":".$list."e";
 		}
 		$peers = $peers6 = array();
-		foreach($list AS $peer_id => $peer) {
-			if($compact) {
+		foreach($list AS $peer_id => $peer){
+			if($this->input_obj->compact == 1){
 				$longip = ip2long($peer["ip"]);
 				if($longip) {
 					$peers[] = pack("Nn", sprintf("%d", $longip), $peer["port"]);
@@ -39,21 +39,44 @@ class Response
 			if($this->input_obj->method !== false){
 				if($this->input_obj->request_mode !== false){
 					if($this->input_obj->request_mode == "announce"){
-						$user_info = $this->nv->GetUserDataByPasskey($this->input_obj->passkey);
 						$torrent_info = $this->nv->GetTorrentDataByInfohash($this->input_obj->info_hash);
-						$this->nv->InsertPeer($torrent_info["id"], $this->input_obj->peer_id, $this->nv->getip(), $this->input_obj->peer_port, $this->input_obj->uploaded, $this->input_obj->downloaded, $this->input_obj->left, $user_info["id"], $this->input_obj->useragent);
-						$pdata = $this->nv->GetPeers($torrent_info["id"], $this->input_obj->numwant, $this->nv->getip());
-						$resp = $this->track($pdata["peers"], $pdata["seeders"], $pdata["leechers"], $this->input_obj->compact);
-						return $resp;
+						$user_info = $this->nv->GetUserDataByPasskey($this->input_obj->passkey);
+						if($this->input_obj->event !== false && $this->input_obj->event == "stopped"){
+							$this->nv->DeletePeer($torrent_info["id"], Client::get_client_ip(), $this->input_obj->left);
+							//$this->nv->DeletePeer($torrent_info["id"], Client::get_client_ip(), $this->input_obj->left);
+							return $this->track(array());
+						}elseif($this->input_obj->event !== false && $this->input_obj->event == "completed"){
+							// add completed
+						}elseif($this->input_obj->event !== false && $this->input_obj->event == "started"){
+							$this->nv->InsertPeer($torrent_info["id"],$this->input_obj->peer_id,Client::get_client_ip(),$this->input_obj->peer_port,$this->input_obj->uploaded,$this->input_obj->downloaded,$this->input_obj->left,$user_info["id"],$this->input_obj->useragent);
+							$pdata = $this->nv->GetPeers($torrent_info["id"], $this->input_obj->numwant, Client::get_client_ip());
+							$resp = $this->track($pdata["peers"], $pdata["seeders"], $pdata["leechers"], $this->input_obj->compact);
+							return $resp;
+						}elseif($this->input_obj->event !== false && $this->input_obj->event == "update"){
+							//update peerdata
+							$pdata = $this->nv->GetPeers($torrent_info["id"], $this->input_obj->numwant, Client::get_client_ip());
+							$resp = $this->track($pdata["peers"], $pdata["seeders"], $pdata["leechers"], $this->input_obj->compact);
+							return $resp;
+						}else{
+							return $this->track("invalid event");
+						}
 					}elseif($this->input_obj->request_mode == "scrape"){
 						return $this->nv->GetScrapeString($this->input_obj->info_hash);
+					}elseif($this->input_obj->request_mode == "status"){
+						//return "Started: ".date("d.m.Y H:i:s",$started)."\nHits: ".$hits."\nClients: ".count($client));
+					}elseif($this->input_obj->request_mode == "landing"){
+						return $this->nv->getlandingpage();
+					}elseif($this->input_obj->request_mode == "favicon"){
+						return "HTTP/1.0 404 Not Found";
+					}elseif($this->input_obj->request_mode == "error"){
+						return $this->nv->fakefourzerofour();
 					}
 				}else
-					return "d14:failure reason15:invalid request";
+					return $this->track("invalid request");
 			}else
-				return "d14:failure reason11:methoderrore";
+				return $this->track("method error");
 		}else
-			return "d14:failure reason7:defaulte";
+			return $this->track("default");
 	}
 }
 ?>

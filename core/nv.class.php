@@ -94,7 +94,7 @@ class nv
 		return $r;
 	}
 
-	public function getip(){		
+	/*public function getip(){		
 		$client  = @$_SERVER['HTTP_CLIENT_IP'];		
 		$forward = @$_SERVER['HTTP_X_FORWARDED_FOR'];		
 		$remote  = @$_SERVER['REMOTE_ADDR'];		
@@ -105,7 +105,7 @@ class nv
 		else		
 			$ip = $remote;		
 		return $ip;		
-	}
+	}*/
 
 	public function InsertPeer($torrentid, $peer_id, $ip, $port, $uploaded, $downloaded, $left, $userid, $agent){
 		$connectable = ($this->IsConnectable($ip, $port)) ? "yes" : "no";
@@ -125,21 +125,37 @@ class nv
 		$qry->bindParam(':uldd', $uploaded, PDO::PARAM_INT);
 		$qry->bindParam(':dldd', $downloaded, PDO::PARAM_INT);
 		$qry->execute();
-		if($qry->rowCount())
-			return true;
-		else
+		if(!$qry->rowCount())
 			return false;
+		
+		if($left == 0)
+			$qry = $this->con->prepare("UPDATE torrents SET seeders = seeders + 1 WHERE id = :tid");
+		else
+			$qry = $this->con->prepare("UPDATE torrents SET leechers = leechers + 1 WHERE id = :tid");
+		$qry->bindParam(':tid', $torrentid, PDO::PARAM_INT);
+		$qry->execute();
+		if(!$qry->rowCount())
+			return false;
+		return true;
 	}
 	
-	public function DeletePeer($torrentid, $ip){
+	public function DeletePeer($torrentid, $ip, $left){
 		$qry = $this->con->prepare("DELETE FROM peers WHERE torrent = :tid AND ip = :ip LIMIT 1");
 		$qry->bindParam(':tid', $torrentid, PDO::PARAM_STR);
 		$qry->bindParam(':ip', $ip, PDO::PARAM_STR);
 		$qry->execute();
-		if($qry->rowCount())
-			return true;
-		else
+		if(!$qry->rowCount())
 			return false;
+
+		if($left == 0)
+			$qry = $this->con->prepare("UPDATE torrents SET seeders = seeders - 1 WHERE id = :tid");
+		else
+			$qry = $this->con->prepare("UPDATE torrents SET leechers = leechers - 1 WHERE id = :tid");
+		$qry->bindParam(':tid', $torrentid, PDO::PARAM_INT);
+		$qry->execute();
+		if(!$qry->rowCount())
+			return false;
+		return true;
 	}
 	
 	public function GetScrapeString($hash){
@@ -195,7 +211,6 @@ class nv
 		$page .= "| NetVision-Fork by kaitokid    | https://github.com/kaitokid222/BitTorrentPHPAnnounceSocketServer |\n";
 		$page .= "+-------------------------------+------------------------------------------------------------------+\n";
 		$page .= "|    Webcommands                |\n";
-		$page .= "|        /kill   (as Operator)  |\n";
 		$page .= "|        /status                |\n";
 		$page .= "+-------------------------------+\n";
 		return $page;

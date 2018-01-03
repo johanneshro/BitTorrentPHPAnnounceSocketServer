@@ -25,13 +25,10 @@ class Input
 	public function __construct($input){
 		$this->o_input = $input;
 		$input = trim($input);
-		$split = explode("\n", $input);
-		//preg_match("=([a-z]{1,} /)(.*)( http/1.[01]{1})=i", $split[0], $temp);
 		$this->headerdata = $this->http_parse_headers($input);
-		//$split_2 = $this->http_parse_headers($input);
 		$this->split_status = explode(" ", $this->headerdata["status"]);
-		// $_GET
 		$this->request = $this->parse_query_string($this->split_status[1]);
+		SocketServer::debug("--> " . $this->split_status[1]);
 		$this->method = (isset($this->split_status[0]) && !empty($this->split_status[0])) ? trim($this->split_status[0]) : "GET";
 		$this->useragent = (isset($this->headerdata["User-Agent"]) && !empty($this->headerdata["User-Agent"])) ? trim($this->headerdata["User-Agent"]) : "";
 		if($this->method != "GET")
@@ -40,8 +37,14 @@ class Input
 			$this->request_mode = "announce";
 		elseif(isset($this->split_status[1]) && substr($this->split_status[1],0,7) == "/scrape")
 			$this->request_mode = "scrape";
+		elseif(isset($this->split_status[1]) && substr($this->split_status[1],0,7) == "/status")
+			$this->request_mode = "status";
+		elseif(isset($this->split_status[1]) && substr($this->split_status[1],0,12) == "/favicon.ico")
+			$this->request_mode = "favicon";
+		elseif(isset($this->split_status[1]) && (substr($this->split_status[1],0,6) == "/index" || $this->split_status[1] == "/"))
+			$this->request_mode = "landing";
 		else
-			$this->request_mode = false;
+			$this->request_mode = "error";
 		$this->info_hash = $this->checkReq("info_hash", true);
 		$this->peer_id = $this->checkReq("peer_id", true);
 		$this->peer_port = $this->checkReq("port");
@@ -51,15 +54,10 @@ class Input
 		$this->left = (isset($this->request["left"])) ? intval($this->request["left"]) : 0;
 		$this->is_seed = ($this->left == 0) ? 1 : 0;
 		$this->numwant = (isset($this->request["numwant"])) ? intval($this->request["numwant"]) : 50;
-		$this->compact = (isset($this->request["compact"]) && intval($this->request["compact"]) == 1) ? true : false;
+		$this->compact = (isset($this->request["compact"]) && intval($this->request["compact"]) == 1) ? 1 : 0;
 		$this->no_peer_id = (isset($this->request["no_peer_id"]) && intval($this->request["no_peer_id"]) == 1) ? 1 : 0;
-		$this->event = (isset($this->request["event"])) ? $this->request["event"] : false;
-
-		// anfrage loggen
-		if(count($this->request) > 0){
-			SocketServer::debug("REQUEST: ".var_export($this->request,true));
-		}
-		
+		$this->event = (isset($this->request["event"])) ? $this->request["event"] : "update";
+		//SocketServer::debug("REQUEST: ".var_export($this->event,true));		
 	}
 
 	private function checkReq($key, $strlen_check=false){
