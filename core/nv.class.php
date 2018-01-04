@@ -64,7 +64,7 @@ class nv
 	
 	public function GetTorrentDataByInfohash($hash){
 		$hhash = bin2hex($hash);
-		$qry = $this->con->prepare("SELECT id, name, banned, activated, seeders + leechers AS numpeers, UNIX_TIMESTAMP(added) AS ts FROM torrents WHERE info_hash = :hash LIMIT 1");
+		$qry = $this->con->prepare("SELECT id, name, category, banned, activated, seeders + leechers AS numpeers, UNIX_TIMESTAMP(added) AS ts FROM torrents WHERE info_hash = :hash LIMIT 1");
 		$qry->bindParam(':hash', $hhash, PDO::PARAM_STR);
 		$qry->execute();
 		if($qry->rowCount())
@@ -125,16 +125,12 @@ class nv
 		$qry->bindParam(':uldd', $uploaded, PDO::PARAM_INT);
 		$qry->bindParam(':dldd', $downloaded, PDO::PARAM_INT);
 		$qry->execute();
-		if(!$qry->rowCount())
-			return false;
-		
-		if($left == 0)
-			$qry = $this->con->prepare("UPDATE torrents SET seeders = seeders + 1 WHERE id = :tid");
-		else
-			$qry = $this->con->prepare("UPDATE torrents SET leechers = leechers + 1 WHERE id = :tid");
-		$qry->bindParam(':tid', $torrentid, PDO::PARAM_INT);
-		$qry->execute();
-		if(!$qry->rowCount())
+		if($qry->rowCount()){
+			if($left == 0)
+				$this->addSeeder($torrentid);
+			else
+				$this->addLeecher($torrentid);
+		}else
 			return false;
 		return true;
 	}
@@ -144,15 +140,12 @@ class nv
 		$qry->bindParam(':tid', $torrentid, PDO::PARAM_STR);
 		$qry->bindParam(':ip', $ip, PDO::PARAM_STR);
 		$qry->execute();
-		if(!$qry->rowCount())
-			return false;
-		if($left == 0)
-			$qry = $this->con->prepare("UPDATE torrents SET seeders = seeders - 1 WHERE id = :tid");
-		else
-			$qry = $this->con->prepare("UPDATE torrents SET leechers = leechers - 1 WHERE id = :tid");
-		$qry->bindParam(':tid', $torrentid, PDO::PARAM_INT);
-		$qry->execute();
-		if(!$qry->rowCount())
+		if($qry->rowCount()){
+			if($left == 0)
+				$this->removeSeeder($torrentid);
+			else
+				$this->removeLeecher($torrentid);			
+		}else
 			return false;
 		return true;
 	}
@@ -175,6 +168,63 @@ class nv
     //    mysql_query("INSERT INTO `traffic` (`userid`,`torrentid`) VALUES ($userid, $torrentid)");
 	public function InsertIntoTraffic(){
 	}
+
+	public function Completed($torrent_info, $user_info){
+		$qry = $this->con->prepare("UPDATE torrents SET times_completed = times_completed + 1 WHERE id = :tid");
+		$qry->bindParam(':tid', $torrentid, PDO::PARAM_INT);
+		$qry->execute();
+		if(!$qry->rowCount())
+			return false;
+		$qry = $this->con->prepare("INSERT INTO completed (user_id, torrent_id, torrent_name, torrent_category, complete_time) VALUES (:userid, :torrentid, :tname, :tcat, NOW())");
+		$qry->bindParam(':userid', $user_info["id"], PDO::PARAM_INT);
+		$qry->bindParam(':torrentid', $torrent_info["id"], PDO::PARAM_INT);
+		$qry->bindParam(':tname', $torrent_info["name"], PDO::PARAM_STR);
+		$qry->bindParam(':tcat', $torrent_info["category"], PDO::PARAM_STR);
+		$qry->execute();
+		if(!$qry->rowCount())
+			return false;
+		$this->removeLeecher($torrent_info["id"]);
+		$this->addSeeder($torrent_info["id"]);
+		return true;
+	}
+
+	public function addSeeder($tid){
+		$qry = $this->con->prepare("UPDATE torrents SET seeders = seeders + 1 WHERE id = :tid");
+		$qry->bindParam(':tid', $tid, PDO::PARAM_INT);
+		$qry->execute();
+		if(!$qry->rowCount())
+			return false;
+		return true;
+	}
+
+	public function removeSeeder($tid){
+		$qry = $this->con->prepare("UPDATE torrents SET seeders = seeders - 1 WHERE id = :tid");
+		$qry->bindParam(':tid', $tid, PDO::PARAM_INT);
+		$qry->execute();
+		if(!$qry->rowCount())
+			return false;
+		return true;
+	}
+
+	public function removeLeecher($tid){
+		$qry = $this->con->prepare("UPDATE torrents SET leechers = leechers - 1 WHERE id = :tid");
+		$qry->bindParam(':tid', $tid, PDO::PARAM_INT);
+		$qry->execute();
+		if(!$qry->rowCount())
+			return false;
+		return true;
+	}
+
+	public function addLeecher($tid){
+		$qry = $this->con->prepare("UPDATE torrents SET leechers = leechers + 1 WHERE id = :tid");
+		$qry->bindParam(':tid', $tid, PDO::PARAM_INT);
+		$qry->execute();
+		if(!$qry->rowCount())
+			return false;
+		return true;
+	}
+	
+	
 
 	public function UpdatePeers($hash){
 	}
