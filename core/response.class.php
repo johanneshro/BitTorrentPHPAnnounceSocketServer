@@ -35,54 +35,63 @@ class Response
 	
 
 	public function get_response_string(){
-		if(isset($this->input_obj)){
+		if(!empty($this->input_obj)){
 			if($this->input_obj->method !== false){
-				if(isset($this->input_obj->peer_port) && ctype_digit($this->input_obj->peer_port) && $this->input_obj->peer_port >= 1 && $this->input_obj->peer_port <= 65535 && !$nv->portblacklisted($this->input_obj->peer_port)){
-					if($this->input_obj->request_mode !== false){
-						if($this->input_obj->request_mode == "announce"){
-							$torrent_info = $this->nv->GetTorrentDataByInfohash($this->input_obj->info_hash);
-							if($torrent_info === false)
-								return $this->track("Dieser Torrent ist dem Tracker nicht bekannt.");
-							$user_info = $this->nv->GetUserDataByPasskey($this->input_obj->passkey);
-							if($user_info === false)
-								return $this->track("Diesem Passkey ist kein Nutzer zugeordnet.");
-							if($this->input_obj->event !== false && $this->input_obj->event == "stopped"){
-								$this->nv->DeletePeer($torrent_info["id"], Client::get_client_ip(), $this->input_obj->left);
-								return $this->track("Kein Fehler - Torrent gestoppt.");
-							}elseif($this->input_obj->event !== false && $this->input_obj->event == "completed"){
-								$this->nv->Completed($torrent_info, $user_info);
-								$pdata = $this->nv->GetPeers($torrent_info["id"], $this->input_obj->numwant, Client::get_client_ip());
-								$resp = $this->track($pdata["peers"], $pdata["seeders"], $pdata["leechers"], $this->input_obj->compact);
-								return $resp;
-							}elseif($this->input_obj->event !== false && $this->input_obj->event == "started"){
-								$this->nv->InsertPeer($torrent_info["id"],$this->input_obj->peer_id,Client::get_client_ip(),$this->input_obj->peer_port,$this->input_obj->uploaded,$this->input_obj->downloaded,$this->input_obj->left,$user_info["id"],$this->input_obj->useragent);
-								$pdata = $this->nv->GetPeers($torrent_info["id"], $this->input_obj->numwant, Client::get_client_ip());
-								$resp = $this->track($pdata["peers"], $pdata["seeders"], $pdata["leechers"], $this->input_obj->compact);
-								return $resp;
-							}elseif($this->input_obj->event !== false && $this->input_obj->event == "update"){
-								//update peerdata
-								$pdata = $this->nv->GetPeers($torrent_info["id"], $this->input_obj->numwant, Client::get_client_ip());
-								$resp = $this->track($pdata["peers"], $pdata["seeders"], $pdata["leechers"], $this->input_obj->compact);
-								return $resp;
-							}else{
-								return $this->track("invalid event");
-							}
-						}elseif($this->input_obj->request_mode == "scrape"){
-							return $this->nv->GetScrapeString($this->input_obj->info_hash);
-						}elseif($this->input_obj->request_mode == "status"){
-							//return "Started: ".date("d.m.Y H:i:s",$started)."\nHits: ".$hits."\nClients: ".count($client));
-						}elseif($this->input_obj->request_mode == "landing"){
-							return $this->nv->getlandingpage();
-						}elseif($this->input_obj->request_mode == "favicon"){
-							return "HTTP/1.0 404 Not Found";
-						}elseif($this->input_obj->request_mode == "error"){
-							return $this->nv->fakefourzerofour();
+				if($this->input_obj->request_mode !== false){
+					if($this->input_obj->request_mode == "announce"){
+						// ----------------------------------------------->
+						if(!$this->nv->isNotBrowser($this->input_obj->useragent))
+							return $this->track("Browser-Clients sind verboten!");
+						if(!property_exists($this->input_obj, 'peer_port') || $this->input_obj->peer_port < 1 && $this->input_obj->peer_port > 65535 && $this->nv->portblacklisted($this->input_obj->peer_port))
+							return $this->track("ungültiger Port");
+						$torrent_info = $this->nv->GetTorrentDataByInfohash($this->input_obj->info_hash);
+						if($torrent_info === false)
+							return $this->track("Dieser Torrent ist dem Tracker nicht bekannt.");
+						if($this->nv->isTorrentActivated($torrent_info["activated"]) === false)
+							return $this->track("Dieser Torrent ist nicht aktiviert.");
+						$user_info = $this->nv->GetUserDataByPasskey($this->input_obj->passkey);
+						if($user_info === false)
+							return $this->track("Diesem Passkey ist kein Nutzer zugeordnet.");
+						$this->nv->createTrafficLog($user_info["id"], $torrent_info["id"]);
+						// <-----------------------------------------------
+						if($this->input_obj->event !== false && $this->input_obj->event == "stopped"){
+							$this->nv->updatePeer($user_info, $torrent_info, $this->input_obj, $this->nv->checkIsPeerSeeder($torrent_info["id"], $this->input_obj->peer_id));
+							$this->nv->DeletePeer($torrent_info["id"], Client::get_client_ip(), $this->input_obj->left);
+							return $this->track("Kein Fehler - Torrent gestoppt.");
+						}elseif($this->input_obj->event !== false && $this->input_obj->event == "completed"){
+							$this->nv->Completed($torrent_info, $user_info);
+							$pdata = $this->nv->GetPeers($torrent_info["id"], $this->input_obj->numwant, Client::get_client_ip());
+							$resp = $this->track($pdata["peers"], $pdata["seeders"], $pdata["leechers"], $this->input_obj->compact);
+							return $resp;
+						}elseif($this->input_obj->event !== false && $this->input_obj->event == "started"){
+							$this->nv->InsertPeer($torrent_info["id"], $this->input_obj->peer_id, Client::get_client_ip(),$this->input_obj->peer_port,$this->input_obj->uploaded,$this->input_obj->downloaded,$this->input_obj->left,$user_info["id"],$this->input_obj->useragent, $torrent_info["visible"], $torrent_info["banned"]);
+							$pdata = $this->nv->GetPeers($torrent_info["id"], $this->input_obj->numwant, Client::get_client_ip());
+							$resp = $this->track($pdata["peers"], $pdata["seeders"], $pdata["leechers"], $this->input_obj->compact);
+							return $resp;
+						}elseif($this->input_obj->event !== false && $this->input_obj->event == "update"){
+							//update peerdata
+							$this->nv->updatePeer($user_info, $torrent_info, $this->input_obj, $this->nv->checkIsPeerSeeder($torrent_info["id"], $this->input_obj->peer_id));
+							$pdata = $this->nv->GetPeers($torrent_info["id"], $this->input_obj->numwant, Client::get_client_ip());
+							$resp = $this->track($pdata["peers"], $pdata["seeders"], $pdata["leechers"], $this->input_obj->compact);
+							return $resp;
+						}else{
+							return $this->track("invalid event");
 						}
-					}else
-						return $this->track("invalid request");
-						
+					}elseif($this->input_obj->request_mode == "scrape"){
+						if(!$this->nv->isNotBrowser($this->input_obj->useragent))
+							return $this->track("Browser-Clients sind verboten!");
+						return $this->nv->GetScrapeString($this->input_obj->info_hash);
+					}elseif($this->input_obj->request_mode == "status"){
+						//return "Started: ".date("d.m.Y H:i:s",$started)."\nHits: ".$hits."\nClients: ".count($client));
+					}elseif($this->input_obj->request_mode == "landing"){
+						return $this->nv->getlandingpage();
+					}elseif($this->input_obj->request_mode == "favicon"){
+						return "HTTP/1.0 404 Not Found";
+					}elseif($this->input_obj->request_mode == "error"){
+						return $this->nv->fakefourzerofour();
+					}
 				}else
-					return $this->track("ungültiger Port");
+					return $this->track("invalid request");
 			}else
 				return $this->track("method error");
 		}else

@@ -47,7 +47,7 @@ class Input
 			$this->request_mode = "error";
 		$this->info_hash = $this->checkReq("info_hash", true);
 		$this->peer_id = $this->checkReq("peer_id", true);
-		$this->peer_port = $this->checkReq("port");
+		$this->peer_port = intval($this->checkReq("port"));
 		$this->passkey = $this->checkReq("passkey");
 		$this->downloaded = (isset($this->request["downloaded"])) ? intval($this->request["downloaded"]) : 0;
 		$this->uploaded = (isset($this->request["uploaded"])) ? intval($this->request["uploaded"]) : 0;
