@@ -3,6 +3,7 @@
 class SocketServer
 {
 	protected $config;
+	protected $ofswitch;
 	public static $debugging = true;
 	protected $master_socket;
 	public $max_clients = 100;
@@ -15,6 +16,7 @@ class SocketServer
 		set_time_limit(0);
 		$this->config["ip"] = $bind_ip;
 		$this->config["port"] = $port;
+		$this->ofswitch = true;
 		$this->master_socket = socket_create(AF_INET, SOCK_STREAM, 0);
 		socket_bind($this->master_socket,$this->config["ip"],$this->config["port"]);
 		socket_getsockname($this->master_socket,$bind_ip,$port);
@@ -24,11 +26,11 @@ class SocketServer
 	}
 
 	public function infinite_loop(){
-		$test = true;
+		//$test = true;
 		do{
 			$test = $this->loop_once();
 		}
-		while($test);
+		while($this->ofswitch);
 	}
 
 	public function loop_once(){
@@ -69,9 +71,21 @@ class SocketServer
 						//SocketServer::debug($i . "@" . $this->clients[$i]->ip . " --> " . $input);
 						$response = new Response($input);
 						$response_str = $response->get_response_string();
-						self::$rtr = $this->rt->get_result();
-						SocketServer::send($this->clients[$i]->socket, $response_str);
-						SocketServer::disconnect($this->clients[$i]->server_clients_index);
+						$res_arr = explode(":|:", $response_str);
+						if(isset($res_arr[1])){
+							if($res_arr[0] == "kill" && $res_arr[1] == "admin"){
+								SocketServer::send($this->clients[$i]->socket, "Sie haben Kenny getoetet!!!");
+								$this->kill();
+							}elseif($res_arr[0] == "avgping" && $res_arr[1] == "admin"){
+								self::$rtr = $this->rt->get_result();
+								SocketServer::send($this->clients[$i]->socket, Runtime::get_avg_ping_str());
+								SocketServer::disconnect($this->clients[$i]->server_clients_index);
+							}
+						}else{
+							self::$rtr = $this->rt->get_result();
+							SocketServer::send($this->clients[$i]->socket, $response_str);
+							SocketServer::disconnect($this->clients[$i]->server_clients_index);
+						}
 					}
 				}
 			}
@@ -104,6 +118,7 @@ class SocketServer
 
 	public static function send(&$sock, $x){
 		SocketServer::debug("<-- " . $x . self::$rtr);
+		cli_set_process_title("NetVision-Announce :: REQ" . self::$rtr);
 		$header = "HTTP/1.1 200 OK\n";
 		$header .= "Server: PHP Socket Server\n";
 		$header .= "Content-Type: Text/Plain\n";
@@ -111,6 +126,15 @@ class SocketServer
 		$header .= "Connection: close\n\n";
 		$header .= trim($x);
 		@socket_write($sock, $header, strlen($header));
+	}
+
+	private function kill(){
+		foreach($this->clients as $k => $client){
+			$client->destroy();
+			unset($this->clients[$k]);
+		}
+		$this->ofswitch = false;
+		@socket_close($this->master_socket);
 	}
 
 	function &__get($name){

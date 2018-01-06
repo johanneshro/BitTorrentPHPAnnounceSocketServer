@@ -1,16 +1,8 @@
 <?php
-
 $config_server = array();
-$logfile = array();
-
-// Server
 $config_server["ip"] = "localhost";
 $config_server["port"] = 81;
 $config_server["max_clients"] = 50;
-
-// Log Files
-
-// mysql
 $db_info = array( 
 	"db_host" => "localhost", 
 	"db_port" => "3306",

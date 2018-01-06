@@ -20,6 +20,8 @@ class Input
 	protected $no_peer_id;
 	protected $request;
 	protected $request_mode;
+	protected $operator_pw;
+	protected $c_action;
 	protected $event;
 
 	public function __construct($input){
@@ -41,7 +43,11 @@ class Input
 			$this->request_mode = "status";
 		elseif(isset($this->split_status[1]) && substr($this->split_status[1],0,12) == "/favicon.ico")
 			$this->request_mode = "favicon";
-		elseif(isset($this->split_status[1]) && (substr($this->split_status[1],0,6) == "/index" || $this->split_status[1] == "/"))
+		elseif(isset($this->split_status[1]) && substr($this->split_status[1],0,8) == "/control"){
+			$this->request_mode = "control";
+			$this->c_action = $this->request["action"];
+			$this->operator_pw = $this->request["operator"];
+		}elseif(isset($this->split_status[1]) && (substr($this->split_status[1],0,6) == "/index" || $this->split_status[1] == "/"))
 			$this->request_mode = "landing";
 		else
 			$this->request_mode = "error";
@@ -57,7 +63,6 @@ class Input
 		$this->compact = (isset($this->request["compact"]) && intval($this->request["compact"]) == 1) ? 1 : 0;
 		$this->no_peer_id = (isset($this->request["no_peer_id"]) && intval($this->request["no_peer_id"]) == 1) ? 1 : 0;
 		$this->event = (isset($this->request["event"])) ? $this->request["event"] : "update";
-		//SocketServer::debug("REQUEST: ".var_export($this->event,true));		
 	}
 
 	private function checkReq($key, $strlen_check=false){
