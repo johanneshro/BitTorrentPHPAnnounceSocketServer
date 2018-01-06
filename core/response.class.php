@@ -29,7 +29,7 @@ class Response
 		}
 		$peers = (count($peers) > 0) ? @implode($peers) : "";
 		$peers6 = (count($peers6) > 0) ? @implode($peers6) : "";
-		$response = "d8:intervali1800e12:min intervali30e8:completei".$complete."e10:incompletei".$incomplete."e5:peers".($compact ? strlen($peers).":".$peers."6:peers6".strlen($peers6).":".$peers6 : "l".$peers."e")."e";
+		$response = "d8:intervali" . $this->nv->pdonvtracker_conf_arr["config"]["ANNOUNCE_INTERVAL"] . "e12:min intervali" . ($this->nv->pdonvtracker_conf_arr["config"]["ANNOUNCE_INTERVAL"]/60) . "e8:completei".$complete."e10:incompletei".$incomplete."e5:peers".($compact ? strlen($peers).":".$peers."6:peers6".strlen($peers6).":".$peers6 : "l".$peers."e")."e";
 		return $response;
 	}
 	
@@ -44,6 +44,10 @@ class Response
 							return $this->track("Browser-Clients sind verboten!");
 						if(!property_exists($this->input_obj, 'peer_port') || $this->input_obj->peer_port < 1 && $this->input_obj->peer_port > 65535 && $this->nv->portblacklisted($this->input_obj->peer_port))
 							return $this->track("ungültiger Port");
+						if($this->nv->checkPeerID($this->input_obj->peer_id) === false)
+							return $this->track("Du benutzt einen gebannten Client. Bitte lies die FAQ!");
+						if($this->nv->checkUseragent($this->input_obj->useragent) === false)
+							return $this->track("Du benutzt einen gebannten Client. Bitte lies die FAQ!");
 						$torrent_info = $this->nv->GetTorrentDataByInfohash($this->input_obj->info_hash);
 						if($torrent_info === false)
 							return $this->track("Dieser Torrent ist dem Tracker nicht bekannt.");
@@ -52,6 +56,13 @@ class Response
 						$user_info = $this->nv->GetUserDataByPasskey($this->input_obj->passkey);
 						if($user_info === false)
 							return $this->track("Diesem Passkey ist kein Nutzer zugeordnet.");
+						if($this->nv->checkIPLimit($user_info["id"], Client::get_client_ip()) === false)
+							return $this->track("Zu viele unterschiedliche IPs fuer diesen Benutzer!");
+						if($this->nv->canInsert($user_info, $this->input_obj->left) === false)
+							return $this->track("Maximales Torrent-Limit erreicht!");
+						$wait = $this->nv->hasToWait($user_info["id"], $torrent_info["id"], $this->input_obj->left);
+						if($wait !== false)
+							return $this->track("Wartezeit (noch " . ($wait) . "h) - Bitte lies das FAQ!");
 						$this->nv->createTrafficLog($user_info["id"], $torrent_info["id"]);
 						// <-----------------------------------------------
 						if($this->input_obj->event !== false && $this->input_obj->event == "stopped"){
