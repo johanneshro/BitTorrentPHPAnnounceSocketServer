@@ -40,8 +40,10 @@ class SocketServer
 				$read[$i + 1] = $this->clients[$i]->socket;
 			}
 		}
-
-		if(socket_select($read,$write = NULL, $except = NULL, $tv_sec = 5) < 1){
+		$write = NULL;
+		$except = NULL;
+		$tv_sec = 5;
+		if(socket_select($read, $write, $except, $tv_sec) < 1){
 			return true;
 		}
 
