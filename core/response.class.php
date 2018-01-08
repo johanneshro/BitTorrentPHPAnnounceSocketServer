@@ -3,9 +3,11 @@
 class Response
 {
 	protected $input_obj;
+	protected $client_ip;
 	protected $nv;
-	public function __construct($input_str) {
+	public function __construct($input_str,$ip) {
 		$this->input_obj = new Input($input_str);
+		$this->client_ip = $ip;
 		$this->nv = $GLOBALS["nv"];
 	}
 
@@ -56,7 +58,7 @@ class Response
 						$user_info = $this->nv->GetUserDataByPasskey($this->input_obj->passkey);
 						if($user_info === false)
 							return $this->track("Diesem Passkey ist kein Nutzer zugeordnet.");
-						if($this->nv->checkIPLimit($user_info["id"], Client::get_client_ip()) === false)
+						if($this->nv->checkIPLimit($user_info["id"], $this->client_ip) === false)
 							return $this->track("Zu viele unterschiedliche IPs fuer diesen Benutzer!");
 						if($this->nv->canInsert($user_info, $this->input_obj->left) === false)
 							return $this->track("Maximales Torrent-Limit erreicht!");
@@ -66,24 +68,24 @@ class Response
 						$this->nv->createTrafficLog($user_info["id"], $torrent_info["id"]);
 						// <-----------------------------------------------
 						if($this->input_obj->event !== false && $this->input_obj->event == "stopped"){
-							$this->nv->insertStopLog($user_info["id"], $torrent_info["id"], Client::get_client_ip(), $this->input_obj->peer_id, $this->input_obj->useragent);
+							$this->nv->insertStopLog($user_info["id"], $torrent_info["id"], $this->client_ip, $this->input_obj->peer_id, $this->input_obj->useragent);
 							$this->nv->updatePeer($user_info, $torrent_info, $this->input_obj, $this->nv->checkIsPeerSeeder($torrent_info["id"], $this->input_obj->peer_id));
-							$this->nv->DeletePeer($torrent_info["id"], Client::get_client_ip(), $this->input_obj->left);
+							$this->nv->DeletePeer($torrent_info["id"], $this->client_ip, $this->input_obj->left);
 							return $this->track("Kein Fehler - Torrent gestoppt.");
 						}elseif($this->input_obj->event !== false && $this->input_obj->event == "completed"){
 							$this->nv->updatePeer($user_info, $torrent_info, $this->input_obj, $this->nv->checkIsPeerSeeder($torrent_info["id"], $this->input_obj->peer_id));
-							$pdata = $this->nv->GetPeers($torrent_info["id"], $this->input_obj->numwant, Client::get_client_ip());
+							$pdata = $this->nv->GetPeers($torrent_info["id"], $this->input_obj->numwant, $this->client_ip);
 							$resp = $this->track($pdata["peers"], $pdata["seeders"], $pdata["leechers"], $this->input_obj->compact);
 							return $resp;
 						}elseif($this->input_obj->event !== false && $this->input_obj->event == "started"){
-							$this->nv->insertStartLog($user_info["id"], $torrent_info["id"], Client::get_client_ip(), $this->input_obj->peer_id, $this->input_obj->useragent);
-							$this->nv->InsertPeer($torrent_info["id"], $this->input_obj->peer_id, Client::get_client_ip(),$this->input_obj->peer_port,$this->input_obj->uploaded,$this->input_obj->downloaded,$this->input_obj->left,$user_info["id"],$this->input_obj->useragent, $torrent_info["visible"], $torrent_info["banned"]);
-							$pdata = $this->nv->GetPeers($torrent_info["id"], $this->input_obj->numwant, Client::get_client_ip());
+							$this->nv->insertStartLog($user_info["id"], $torrent_info["id"], $this->client_ip, $this->input_obj->peer_id, $this->input_obj->useragent);
+							$this->nv->InsertPeer($torrent_info["id"], $this->input_obj->peer_id, $this->client_ip,$this->input_obj->peer_port,$this->input_obj->uploaded,$this->input_obj->downloaded,$this->input_obj->left,$user_info["id"],$this->input_obj->useragent, $torrent_info["visible"], $torrent_info["banned"]);
+							$pdata = $this->nv->GetPeers($torrent_info["id"], $this->input_obj->numwant, $this->client_ip);
 							$resp = $this->track($pdata["peers"], $pdata["seeders"], $pdata["leechers"], $this->input_obj->compact);
 							return $resp;
 						}elseif($this->input_obj->event !== false && $this->input_obj->event == "update"){
 							$this->nv->updatePeer($user_info, $torrent_info, $this->input_obj, $this->nv->checkIsPeerSeeder($torrent_info["id"], $this->input_obj->peer_id));
-							$pdata = $this->nv->GetPeers($torrent_info["id"], $this->input_obj->numwant, Client::get_client_ip());
+							$pdata = $this->nv->GetPeers($torrent_info["id"], $this->input_obj->numwant, $this->client_ip);
 							$resp = $this->track($pdata["peers"], $pdata["seeders"], $pdata["leechers"], $this->input_obj->compact);
 							return $resp;
 						}else{

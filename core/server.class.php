@@ -71,7 +71,7 @@ class SocketServer
 							$this->disconnect($i);
 					}else{
 						//SocketServer::debug($i . "@" . $this->clients[$i]->ip . " --> " . $input);
-						$response = new Response($input);
+						$response = new Response($input,$this->clients[$i]->ip);
 						$response_str = $response->get_response_string();
 						$res_arr = explode(":|:", $response_str);
 						if(isset($res_arr[1])){

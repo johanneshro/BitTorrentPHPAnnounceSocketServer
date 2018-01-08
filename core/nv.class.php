@@ -38,7 +38,6 @@ class nv
 		foreach($this->pdonvtracker_conf_arr["config"]["BAN_PEERIDS"] as $banned_id){
 			if(substr($pid,0,strlen($banned_id)) == $banned_id){
 				return false;
-				break;
 			}
 		}
 		return true;
@@ -173,6 +172,20 @@ class nv
 			return false;
 		return true;
 	}
+
+/*	private function isTorrentOnlyUpload($tid){
+		$qry = $this->con->prepare("SELECT free FROM torrents WHERE id = :id");
+		$qry->bindParam(':id', $tid, PDO::PARAM_INT);
+		$qry->execute();
+		if($qry->rowCount()){
+			$data = $qry->Fetch(PDO::FETCH_ASSOC);
+			if($data["free"] == "yes")
+				return true;
+			else
+				return false;
+		}else
+			return false;
+	}*/
 
 	public function addSeeder($tid){
 		$qry = $this->con->prepare("UPDATE torrents SET seeders = seeders + 1, last_action = NOW() WHERE id = :tid");
@@ -378,6 +391,8 @@ class nv
 		$qry->bindParam(':torrentid', $torrentid, PDO::PARAM_INT);
 		$qry->execute();
 
+//		if($this->isTorrentOnlyUpload($torrent["id"]) !== false)
+//			$download = 0;
 		$qry = $this->con->prepare("UPDATE users SET uploaded = uploaded + :upthis, downloaded = downloaded + :downthis WHERE id=:userid");
 		$qry->bindParam(':upthis', $upload, PDO::PARAM_INT);
 		$qry->bindParam(':downthis', $download, PDO::PARAM_INT);
