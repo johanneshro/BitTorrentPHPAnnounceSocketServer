@@ -116,6 +116,8 @@ class nv
 
 	public function GetNvConfig(){
 		$response = file_get_contents($this->pdonvtracker . "/saconf.php?socket=1&operator=admin");
+		if($response === FALSE)
+			die("Fehler - Die Konfiguration des Trackers konnte nicht geladen werden!");
 		$res_arr = json_decode($response, true);
 		$na = array();
 		foreach($res_arr["config"]["BAN_PEERIDS"] as $banc)
