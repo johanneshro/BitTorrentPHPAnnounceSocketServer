@@ -1,5 +1,6 @@
 <?php
 $config_server = array();
+// ip oder domain ohne http://
 $config_server["ip"] = "localhost";
 $config_server["port"] = 81;
 $config_server["max_clients"] = 50;

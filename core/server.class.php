@@ -14,6 +14,12 @@ class SocketServer
 
 	public function __construct($bind_ip, $port){
 		set_time_limit(0);
+		//check for domain
+		if(ip2long($bind_ip) === false){
+			$bind_ip = gethostbyname($bind_ip);
+			if(ip2long($bind_ip) === false)
+				die("Fehler! - Es konnte keine gültige IP generiert werden!");
+		}
 		$this->config["ip"] = $bind_ip;
 		$this->config["port"] = $port;
 		$this->ofswitch = true;

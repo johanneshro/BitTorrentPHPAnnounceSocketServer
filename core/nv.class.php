@@ -452,9 +452,9 @@ class nv
 
 	// scrape
 	public function GetScrapeString($hash){
-		$hhash = bin2hex($hash);
+		$hexhash = bin2hex($hash);
 		$qry = $this->con->prepare("SELECT times_completed, leechers, seeders FROM torrents WHERE info_hash = :hash LIMIT 1");
-		$qry->bindParam(':hash', $hhash, PDO::PARAM_STR);
+		$qry->bindParam(':hash', $hexhash, PDO::PARAM_STR);
 		$qry->execute();
 		if($qry->rowCount())
 			$row = $qry->Fetch(PDO::FETCH_ASSOC);
