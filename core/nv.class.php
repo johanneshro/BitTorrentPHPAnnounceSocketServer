@@ -319,6 +319,7 @@ class nv
 		return $r;
 	}
 
+	//buggy
 	public function updatePeer($user, $torrent, $input, $seeder){
 		$uploaded = $input->uploaded;
 		$downloaded = $input->downloaded;

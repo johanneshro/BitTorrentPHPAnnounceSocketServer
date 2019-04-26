@@ -64,11 +64,12 @@ class Response
 							return $this->track("Maximales Torrent-Limit erreicht!");
 						$wait = $this->nv->hasToWait($user_info["id"], $torrent_info["id"], $this->input_obj->left);
 						if($wait !== false)
-							return $this->track("Wartezeit (noch " . ($wait) . "h) - Bitte lies das FAQ!");
+							return $this->track("Wartezeit (noch " . ($wait) . "h) - Bitte lies die FAQ!");
 						$this->nv->createTrafficLog($user_info["id"], $torrent_info["id"]);
 						// <-----------------------------------------------
 						if($this->input_obj->event !== false && $this->input_obj->event == "stopped"){
 							$this->nv->insertStopLog($user_info["id"], $torrent_info["id"], $this->client_ip, $this->input_obj->peer_id, $this->input_obj->useragent);
+							// buggy
 							$this->nv->updatePeer($user_info, $torrent_info, $this->input_obj, $this->nv->checkIsPeerSeeder($torrent_info["id"], $this->input_obj->peer_id));
 							$this->nv->DeletePeer($torrent_info["id"], $this->client_ip, $this->input_obj->left);
 							return $this->track("Kein Fehler - Torrent gestoppt.");
@@ -84,6 +85,7 @@ class Response
 							$resp = $this->track($pdata["peers"], $pdata["seeders"], $pdata["leechers"], $this->input_obj->compact);
 							return $resp;
 						}elseif($this->input_obj->event !== false && $this->input_obj->event == "update"){
+							// buggy
 							$this->nv->updatePeer($user_info, $torrent_info, $this->input_obj, $this->nv->checkIsPeerSeeder($torrent_info["id"], $this->input_obj->peer_id));
 							$pdata = $this->nv->GetPeers($torrent_info["id"], $this->input_obj->numwant, $this->client_ip);
 							$resp = $this->track($pdata["peers"], $pdata["seeders"], $pdata["leechers"], $this->input_obj->compact);
