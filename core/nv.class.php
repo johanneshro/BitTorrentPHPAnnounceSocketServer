@@ -362,6 +362,7 @@ class nv
 			$dthis += $uthis;
 			$uthis = 0;
 		}
+		new Logging("_CLASSNV_","updatepeer() after fakecheck - Interval:" . $interval . " uthis: " . $uthis);
 		$this->updateTraffic($dthis,$uthis,$seeder,$interval,$user["id"],$torrent["id"]);
 	}
 

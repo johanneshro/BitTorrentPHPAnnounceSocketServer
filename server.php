@@ -11,6 +11,7 @@ include("core/response.class.php");
 include("core/db.class.php");
 include("core/nv.class.php");
 include("core/runtime.class.php");
+include("core/logging.class.php");
 $database = new db($dsn);
 $pdo = $database->getPDO();
 if(!$database)
