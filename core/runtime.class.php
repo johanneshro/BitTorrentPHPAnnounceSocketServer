@@ -7,6 +7,7 @@ class runtime
 	public static $rcount = 0;
 	public static $pingcount = 0;
 	public static $avgping = 0;
+	public static $socketstartts = 0;
 
 	public function __construct(){
 		$this->set_start_ts();
@@ -14,7 +15,7 @@ class runtime
 	}
 
 	//https://www.tutorials.de/threads/verstrichene-zeit-in-millisekunden.247017/
-	private function unique_ts(){
+	public static function unique_ts(){
 		$milliseconds = microtime();
 		$timestring = explode(" ", $milliseconds);
 		$sg = $timestring[1];
@@ -45,16 +46,28 @@ class runtime
 		return self::$avgping;
 	}
 
+	public static function set_socket_start_ts(){
+		self::$socketstartts = time();
+	}
+
+	public static function get_socket_start_ts(){
+		return self::$socketstartts;
+	}
+
+	public static function get_count(){
+		return self::$rcount;
+	}
+
 	public static function get_avg_ping_str(){
 		return self::$avgping . "/" . self::$pingcount . "/" . self::$rcount;
 	}
 
 	private function set_start_ts(){
-		$this->start_ts = $this->unique_ts();
+		$this->start_ts = self::unique_ts();
 	}
 
 	private function set_end_ts(){
-		$this->end_ts = $this->unique_ts();
+		$this->end_ts = self::unique_ts();
 	}
 }
 ?>

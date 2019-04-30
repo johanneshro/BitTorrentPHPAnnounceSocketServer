@@ -98,7 +98,7 @@ class Response
 							return $this->track("Browser-Clients sind verboten!");
 						return $this->nv->GetScrapeString($this->input_obj->info_hash);
 					}elseif($this->input_obj->request_mode == "status"){
-						//return "Started: ".date("d.m.Y H:i:s",$started)."\nHits: ".$hits."\nClients: ".count($client));
+						return "Started: ".date("d.m.Y H:i:s", Runtime::get_socket_start_ts())."\nHits: ".Runtime::get_count();
 					}elseif($this->input_obj->request_mode == "landing"){
 						return $this->nv->getlandingpage();
 					}elseif($this->input_obj->request_mode == "favicon"){

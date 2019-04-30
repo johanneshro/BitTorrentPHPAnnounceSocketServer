@@ -12,12 +12,11 @@ include("core/db.class.php");
 include("core/nv.class.php");
 include("core/runtime.class.php");
 include("core/logging.class.php");
-
+Runtime::set_socket_start_ts();
 $database = new db($dsn);
 $pdo = $database->getPDO();
 if(!$database)
 	$server["running"] = false;
-
 $nv = new nv($pdo);
 $nv->SetTrackerPath($config_server["trackerurl"], $config_server["trackerport"]);
 $nv->GetNvConfig();
