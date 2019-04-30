@@ -1,9 +1,16 @@
 <?php
 $config_server = array();
-// ip oder domain ohne http://
+// ip oder domain ohne http:// des SocketServers
 $config_server["ip"] = "localhost";
 $config_server["port"] = 81;
+
+// Url des Trackers ohne http://
+$config_server["trackerurl"] = "localhost";
+$config_server["trackerport"] = 80;
+
 $config_server["max_clients"] = 50;
+
+// Datenbankeinstellungen
 $db_info = array( 
 	"db_host" => "localhost", 
 	"db_port" => "3306",

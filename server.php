@@ -12,13 +12,16 @@ include("core/db.class.php");
 include("core/nv.class.php");
 include("core/runtime.class.php");
 include("core/logging.class.php");
+
 $database = new db($dsn);
 $pdo = $database->getPDO();
 if(!$database)
 	$server["running"] = false;
+
 $nv = new nv($pdo);
-$nv->SetTrackerPath("localhost");
+$nv->SetTrackerPath($config_server["trackerurl"], $config_server["trackerport"]);
 $nv->GetNvConfig();
+
 $server = new SocketServer($config_server["ip"],$config_server["port"]);
 //SocketServer::set_debugging(false);
 $server->set_max_clients($config_server["max_clients"]);
