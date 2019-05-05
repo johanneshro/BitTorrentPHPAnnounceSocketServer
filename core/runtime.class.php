@@ -1,9 +1,23 @@
 <?php
 
+/*
+// +--------------------------------------------------------------------------+
+// | Project:    pdonvtracker - NetVision BitTorrent Tracker 2019             |
+// +--------------------------------------------------------------------------+
+// | This file is part of pdonvtracker. NVTracker is based on BTSource,       |
+// | originally by RedBeard of TorrentBits, extensively modified by           |
+// | Gartenzwerg.                                                             |
+// +--------------------------------------------------------------------------+
+// | Obige Zeilen dürfen nicht entfernt werden!    Do not remove above lines! |
+// +--------------------------------------------------------------------------+
+ */
+
 class runtime
 {
 	private $start_ts;
 	private $end_ts;
+	public static $data_received = 0;
+	public static $data_sended = 0;
 	public static $rcount = 0;
 	public static $pingcount = 0;
 	public static $avgping = 0;
@@ -50,6 +64,15 @@ class runtime
 		self::$socketstartts = time();
 	}
 
+	public static function count_data($type,$size){
+		//to kilo
+		$size = round($size/1024,3);
+		if($type == "IN")
+			self::$data_received = self::$data_received+$size;
+		elseif($type == "OUT")
+			self::$data_sended = self::$data_sended+$size;
+	}
+
 	public static function get_socket_start_ts(){
 		return self::$socketstartts;
 	}
@@ -59,7 +82,7 @@ class runtime
 	}
 
 	public static function get_avg_ping_str(){
-		return self::$avgping . "/" . self::$pingcount . "/" . self::$rcount;
+		return self::$avgping . "/" . self::$pingcount . "/" . self::$rcount . "/" . self::$data_received . "/" . self::$data_sended . "/" . self::$socketstartts . "";
 	}
 
 	private function set_start_ts(){

@@ -12,12 +12,12 @@
 // +--------------------------------------------------------------------------+
  */
 
-include("config.php");
-include("core/classes.php");
-
-Runtime::set_socket_start_ts();
-$nv = new nv($config_server["trackerurl"], $config_server["trackerport"]);
-$server = new SocketServer($config_server["ip"],$config_server["port"], $config_server["max_clients"]);
-//SocketServer::set_debugging(false);
-$server->infinite_loop();
+include("server.class.php");
+include("client.class.php");
+include("input.class.php");
+include("response.class.php");
+include("db.class.php");
+include("nv.class.php");
+include("runtime.class.php");
+include("logging.class.php");
 ?>

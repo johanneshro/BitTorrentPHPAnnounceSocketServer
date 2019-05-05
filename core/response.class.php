@@ -1,5 +1,17 @@
 <?php
 
+/*
+// +--------------------------------------------------------------------------+
+// | Project:    pdonvtracker - NetVision BitTorrent Tracker 2019             |
+// +--------------------------------------------------------------------------+
+// | This file is part of pdonvtracker. NVTracker is based on BTSource,       |
+// | originally by RedBeard of TorrentBits, extensively modified by           |
+// | Gartenzwerg.                                                             |
+// +--------------------------------------------------------------------------+
+// | Obige Zeilen dürfen nicht entfernt werden!    Do not remove above lines! |
+// +--------------------------------------------------------------------------+
+ */
+
 class Response
 {
 	protected $input_obj;
@@ -93,6 +105,7 @@ class Response
 						}else{
 							return $this->track("invalid event");
 						}
+						// ----------------------------------------------------->
 					}elseif($this->input_obj->request_mode == "scrape"){
 						if(!$this->nv->isNotBrowser($this->input_obj->useragent))
 							return $this->track("Browser-Clients sind verboten!");

@@ -1,5 +1,17 @@
 <?php
 
+/*
+// +--------------------------------------------------------------------------+
+// | Project:    pdonvtracker - NetVision BitTorrent Tracker 2019             |
+// +--------------------------------------------------------------------------+
+// | This file is part of pdonvtracker. NVTracker is based on BTSource,       |
+// | originally by RedBeard of TorrentBits, extensively modified by           |
+// | Gartenzwerg.                                                             |
+// +--------------------------------------------------------------------------+
+// | Obige Zeilen dürfen nicht entfernt werden!    Do not remove above lines! |
+// +--------------------------------------------------------------------------+
+ */
+
 class Input
 {
 	private $o_input;
@@ -42,6 +54,8 @@ class Input
 		elseif(isset($this->split_status[1]) && substr($this->split_status[1],0,7) == "/status")
 			$this->request_mode = "status";
 		elseif(isset($this->split_status[1]) && substr($this->split_status[1],0,12) == "/favicon.ico")
+			$this->request_mode = "favicon";
+		elseif(isset($this->split_status[1]) && substr($this->split_status[1],0,9) == "login.cgi")
 			$this->request_mode = "favicon";
 		elseif(isset($this->split_status[1]) && substr($this->split_status[1],0,8) == "/control"){
 			$this->request_mode = "control";

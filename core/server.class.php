@@ -1,5 +1,17 @@
 <?php
 
+/*
+// +--------------------------------------------------------------------------+
+// | Project:    pdonvtracker - NetVision BitTorrent Tracker 2019             |
+// +--------------------------------------------------------------------------+
+// | This file is part of pdonvtracker. NVTracker is based on BTSource,       |
+// | originally by RedBeard of TorrentBits, extensively modified by           |
+// | Gartenzwerg.                                                             |
+// +--------------------------------------------------------------------------+
+// | Obige Zeilen dürfen nicht entfernt werden!    Do not remove above lines! |
+// +--------------------------------------------------------------------------+
+ */
+
 class SocketServer
 {
 	protected $config;
@@ -12,23 +24,24 @@ class SocketServer
 	public $rt;
 	public static $rtr;
 
-	public function __construct($bind_ip, $port){
+	public function __construct($bind_ip, $port, $maxclients){
 		set_time_limit(0);
 		//check for domain
-		if(ip2long($bind_ip) === false){
-			$bind_ip = gethostbyname($bind_ip);
-			if(ip2long($bind_ip) === false)
-				die("Fehler! - Es konnte keine gültige IP generiert werden!");
-		}
 		$this->config["ip"] = $bind_ip;
 		$this->config["port"] = $port;
 		$this->ofswitch = true;
-		$this->master_socket = socket_create(AF_INET, SOCK_STREAM, 0);
+		$ipversion = strpos($this->config["ip"], ":") === false ? 4 : 6;
+		if($ipversion == 4)
+			$this->master_socket = socket_create(AF_INET, SOCK_STREAM, 0);
+		elseif($ipversion == 6)
+			$this->master_socket = socket_create(AF_INET6, SOCK_STREAM, 0);
+			
 		socket_bind($this->master_socket,$this->config["ip"],$this->config["port"]);
 		socket_getsockname($this->master_socket,$bind_ip,$port);
 		socket_listen($this->master_socket);
 		socket_set_nonblock($this->master_socket);
 		SocketServer::debug("Server (" . $bind_ip . ":" . $port . ") gestartet");
+		$this->set_max_clients($maxclients);
 	}
 
 	public function infinite_loop(){
@@ -58,8 +71,7 @@ class SocketServer
 			for($i = 0; $i < $this->max_clients; $i++){
 				if(empty($this->clients[$i])){
 					$temp_sock = $this->master_socket;
-					if(self::$debugging)
-						$this->rt = new runtime();
+					$this->rt = new runtime();
 					$this->clients[$i] = new Client($this->master_socket,$i);
 					break;
 				}elseif($i == ($this->max_clients-1)){
@@ -76,6 +88,7 @@ class SocketServer
 					if($input == null){
 							$this->disconnect($i);
 					}else{
+						Runtime::count_data("IN", strlen($input));
 						//SocketServer::debug($i . "@" . $this->clients[$i]->ip . " --> " . $input);
 						$response = new Response($input,$this->clients[$i]->ip);
 						$response_str = $response->get_response_string();
@@ -134,6 +147,7 @@ class SocketServer
 		$header .= "Connection: close\n\n";
 		$header .= trim($x);
 		@socket_write($sock, $header, strlen($header));
+		Runtime::count_data("OUT", strlen($header));
 	}
 
 	private function kill(){

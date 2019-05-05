@@ -2,7 +2,7 @@
 
 /*
 // +--------------------------------------------------------------------------+
-// | Project:    pdonvtracker - NetVision BitTorrent Tracker 2017             |
+// | Project:    pdonvtracker - NetVision BitTorrent Tracker 2019             |
 // +--------------------------------------------------------------------------+
 // | This file is part of pdonvtracker. NVTracker is based on BTSource,       |
 // | originally by RedBeard of TorrentBits, extensively modified by           |
@@ -18,10 +18,14 @@ class nv
 	private $pdonvtracker;
 	public $pdonvtracker_conf_arr;
 
-	function __construct($db){
-		$this->con = $db;
+	function __construct($path,$port){
+		$this->con = DB::getInstance();
+		if(!$this->con)
+			die("Datenbankfehler!");
 		$this->pdonvtracker = "";
 		$this->pdonvtracker_conf_arr = array();
+		$this->SetTrackerPath($path, $port);
+		$this->GetNvConfig();
 	}
 
 	public function SetTrackerPath($url = "", $port = 80){
@@ -55,11 +59,17 @@ class nv
 			$numtorrents = 0;
 			$seeds = 0;
 			$leeches = 0;
-			$qry = $this->con->prepare("SELECT seeder FROM peers WHERE userid=:userid");
-			$qry->bindParam(':userid', $user["id"], PDO::PARAM_STR);
-			$qry->execute();
-			if($qry->rowCount()){
-				$data = $qry->FetchAll(PDO::FETCH_ASSOC);
+			$data = $this->con->table('peers')
+								->select('seeder')
+								->where('userid',$user["id"])
+								->get()
+								->toArray();
+			$logdata = var_export($data,true);
+			new Logging("_QUERY_","Query: " . $this->con->getSQL() . "\n" . 
+						"Vars: userid: " . $user["id"] . "\n" .
+						"Result: " . $logdata
+						);
+			if($this->con->rowCount() > 0){
 				foreach($data as $row){
 					$numtorrents++;
 					if($row["seeder"] == "yes")
@@ -75,31 +85,32 @@ class nv
 		}else
 			return true;
 	}
-	
-	
 
 	public function checkRatioFake($upthis, $interval, $uid){
 		if(($upthis / $interval) > $this->pdonvtracker_conf_arr["config"]["RATIOFAKER_THRESH"]){
 			$moduid = 0;
 			$txt = "Socket-Announce: Ratiofaker-Tool verwendet!";
-			$qry = $this->con->prepare("INSERT INTO `modcomments` (`added`, `userid`, `moduid`, `txt`) VALUES (NOW(), :uid, :moduid, :text)");
-			$qry->bindParam(':uid', $uid, PDO::PARAM_INT);
-			$qry->bindParam(':moduid', $moduid, PDO::PARAM_INT);
-			$qry->bindParam(':text', $txt, PDO::PARAM_STR);
-			$qry->execute();
+			$this->con->insert('modcomments',['added' => date("Y-m-d H:i:s"),
+												'userid' => $uid,
+												'moduid' => $moduid,
+												'txt'	=> $txt
+											]
+										);
+			new Logging("_QUERY_",$this->con->getSQL());
 			return true;
 		}
 		return false;
 	}
 
 	public function checkIPLimit($userid, $ip){
-		$qry = $this->con->prepare("SELECT DISTINCT(ip) AS ip FROM peers WHERE userid=:uid");
-		$qry->bindParam(':uid', $userid, PDO::PARAM_INT);
-		$qry->execute();
-		if($qry->rowCount())
-			$data = $qry->FetchAll(PDO::FETCH_ASSOC);
-		else
+		$sql = "SELECT DISTINCT(ip) AS ip FROM peers WHERE userid= ?";
+		$data = $this->con->query($sql, [$userid])
+							->toArray();
+		new Logging("_QUERY_",$this->con->getSQL());
+		
+		if($this->con->rowCount() == 0)
 			return true;
+
 		$count = 0;
 		$found = FALSE;
 		foreach($data as $row){
@@ -132,14 +143,15 @@ class nv
 		if(!$this->CheckPasskey($passkey))
 			return false;
 		$passkey = hex2bin($passkey);
-		$qry = $this->con->prepare("SELECT id, uploaded, downloaded, class, tlimitseeds, tlimitleeches, tlimitall FROM users WHERE passkey= :pk");
-		$qry->bindParam(':pk', $passkey, PDO::PARAM_STR);
-		$qry->execute();
-		if($qry->rowCount())
-			$data = $qry->Fetch(PDO::FETCH_ASSOC);
-		else
+		$data = $this->con->table('users')
+						->select('id, uploaded, downloaded, class, tlimitseeds, tlimitleeches, tlimitall')
+						->where('passkey',$passkey)
+						->get()
+						->toArray();
+		new Logging("_QUERY_",$this->con->getSQL());
+		if($this->con->rowCount() == 0)
 			$data = false;
-		return $data;
+		return $data[0];
 	}
 	
 	private function CheckPasskey($pk){
@@ -151,21 +163,19 @@ class nv
 	// TORRENT
 	public function GetTorrentDataByInfohash($hash){
 		$hhash = bin2hex($hash);
-		$qry = $this->con->prepare("SELECT id, name, category, visible, banned, activated, seeders + leechers AS numpeers, UNIX_TIMESTAMP(added) AS ts FROM torrents WHERE info_hash = :hash LIMIT 1");
-		$qry->bindParam(':hash', $hhash, PDO::PARAM_STR);
-		$qry->execute();
-		if($qry->rowCount())
-			$data = $qry->Fetch(PDO::FETCH_ASSOC);
-		else
+		$sql = "SELECT id, name, category, visible, banned, activated, seeders + leechers AS numpeers, UNIX_TIMESTAMP(added) AS ts FROM torrents WHERE info_hash = ? LIMIT 1";
+		$data = $this->con->query($sql, [$hhash])
+							->toArray();
+		new Logging("_QUERY_",$this->con->getSQL());
+		if($this->con->rowCount() == 0)
 			$data = false;
-		return $data;
+		return $data[0];
 	}
 
 	private function makeVisible($torrent){
 		if($torrent["visible"] != "yes"){
-			$qry = $this->con->prepare("UPDATE torrents SET visible = 'yes' WHERE id = :tid");
-			$qry->bindParam(':tid', $torrent["id"], PDO::PARAM_INT);
-			$qry->execute();
+			$this->con->update('torrents',['visible' => 'yes'],['id',$torrent["id"]])->exec();
+			new Logging("_QUERY_",$this->con->getSQL());
 		}
 	}
 
@@ -190,37 +200,33 @@ class nv
 	}*/
 
 	public function addSeeder($tid){
-		$qry = $this->con->prepare("UPDATE torrents SET seeders = seeders + 1, last_action = NOW() WHERE id = :tid");
-		$qry->bindParam(':tid', $tid, PDO::PARAM_INT);
-		$qry->execute();
-		if(!$qry->rowCount())
+		$this->con->update('torrents',['seeders' => 'seeders + 1'],['id',$tid])->exec();
+		new Logging("_QUERY_",$this->con->getSQL());
+		if($this->con->rowCount() == 0)
 			return false;
 		return true;
 	}
 
 	public function removeSeeder($tid){
-		$qry = $this->con->prepare("UPDATE torrents SET seeders = seeders - 1 WHERE id = :tid");
-		$qry->bindParam(':tid', $tid, PDO::PARAM_INT);
-		$qry->execute();
-		if(!$qry->rowCount())
+		$this->con->update('torrents',['seeders' => 'seeders - 1'],['id',$tid])->exec();
+		new Logging("_QUERY_",$this->con->getSQL());
+		if($this->con->rowCount() == 0)
 			return false;
 		return true;
 	}
 
 	public function removeLeecher($tid){
-		$qry = $this->con->prepare("UPDATE torrents SET leechers = leechers - 1 WHERE id = :tid");
-		$qry->bindParam(':tid', $tid, PDO::PARAM_INT);
-		$qry->execute();
-		if(!$qry->rowCount())
+		$this->con->update('torrents',['leechers' => 'leechers - 1'],['id',$tid])->exec();
+		new Logging("_QUERY_",$this->con->getSQL());
+		if($this->con->rowCount() == 0)
 			return false;
 		return true;
 	}
 
 	public function addLeecher($tid){
-		$qry = $this->con->prepare("UPDATE torrents SET leechers = leechers + 1 WHERE id = :tid");
-		$qry->bindParam(':tid', $tid, PDO::PARAM_INT);
-		$qry->execute();
-		if(!$qry->rowCount())
+		$this->con->update('torrents',['leechers' => 'leechers + 1'],['id',$tid])->exec();
+		new Logging("_QUERY_",$this->con->getSQL());
+		if($this->con->rowCount() == 0)
 			return false;
 		return true;
 	}
@@ -229,22 +235,29 @@ class nv
 	public function InsertPeer($torrentid, $peer_id, $ip, $port, $uploaded, $downloaded, $left, $userid, $agent, $visible, $banned){
 		$connectable = ($this->IsConnectable($ip, $port)) ? "yes" : "no";
 		$seeder = ($left == 0) ? "yes" : "no";
-		$qry = $this->con->prepare("INSERT INTO peers (connectable, torrent, peer_id, ip, port, uploaded, downloaded, to_go, started, last_action, seeder, userid, agent, uploadoffset, downloadoffset)VALUES (:connectable, :tid, :pid, :ip, :port, :uploaded, :downloaded, :left, NOW(), NOW(), :seeder, :uid, :agent, :uldd, :dldd)");
-		$qry->bindParam(':connectable', $connectable, PDO::PARAM_STR);
-		$qry->bindParam(':tid', $torrentid, PDO::PARAM_INT);
-		$qry->bindParam(':pid', $peer_id, PDO::PARAM_STR);
-		$qry->bindParam(':ip', $ip, PDO::PARAM_STR);
-		$qry->bindParam(':port', $port, PDO::PARAM_INT);
-		$qry->bindParam(':uploaded', $uploaded, PDO::PARAM_INT);
-		$qry->bindParam(':downloaded', $downloaded, PDO::PARAM_INT);
-		$qry->bindParam(':left', $left, PDO::PARAM_INT);
-		$qry->bindParam(':seeder', $seeder, PDO::PARAM_STR);
-		$qry->bindParam(':uid', $userid, PDO::PARAM_INT);
-		$qry->bindParam(':agent', $agent, PDO::PARAM_STR);
-		$qry->bindParam(':uldd', $uploaded, PDO::PARAM_INT);
-		$qry->bindParam(':dldd', $downloaded, PDO::PARAM_INT);
-		$qry->execute();
-		if($qry->rowCount()){
+		$this->con->insert('peers',
+									[
+									'torrent' => $torrentid,
+									'peer_id' => '' . $peer_id . '',
+									'ip' => $ip,
+									'port' => '' . $port . '',
+									'uploaded' => '' . $uploaded . '',
+									'downloaded' => '' . $downloaded . '',
+									'to_go' => '' . $left . '',
+									'seeder' => $seeder,
+									'started' => date("Y-m-d H:i:s"),
+									'last_action' => date("Y-m-d H:i:s"),
+									'connectable' => $connectable,
+									'userid' => $userid,
+									'agent' => $agent,
+									//'finishedat' => '0',
+									'uploadoffset' => '' . $uploaded . '',
+									'downloadoffset' => '' . $downloaded . ''
+									]);
+		new Logging("_QUERY_",$this->con->getSQL());
+		// INSERT INTO `peers` (`connectable`, `torrent`, `peed_id`, `ip`, `port`, `uploaded`, `downloaded`, `to_go`, `started`, `last_action`, `seeder`, `userid`, `agent`, `uploadoffset`, `downloadoffset`) 
+		// VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		if($this->con->rowCount()){
 			if($left == 0){
 				$this->addSeeder($torrentid);
 				if($banned == "no"){
@@ -260,13 +273,15 @@ class nv
 	}
 
 	public function checkIsPeerSeeder($tid, $pid){
-		$qry = $this->con->prepare("SELECT seeder FROM peers WHERE torrent = :tid AND peer_id = :pid");
-		$qry->bindParam(':tid', $tid, PDO::PARAM_INT);
-		$qry->bindParam(':pid', $pid, PDO::PARAM_STR);
-		$qry->execute();
-		if($qry->rowCount()){
-			$d = $qry->Fetch(PDO::FETCH_ASSOC);
-			if($d["seeder"] == "yes")
+		$d = $this->con->table('peers')
+						->select('seeder')
+						->where('torrent',$tid)
+						->where('peer_id',$pid)
+						->get()
+						->toArray();
+		new Logging("_QUERY_",$this->con->getSQL());
+		if($this->con->rowCount()){
+			if($d[0]["seeder"] == "yes")
 				return true;
 			else
 				return false;
@@ -275,12 +290,11 @@ class nv
 	}
 
 	public function getPeerLastAccess($tid, $pid){
-		$qry = $this->con->prepare("SELECT UNIX_TIMESTAMP(last_action) AS lastaction FROM peers WHERE torrent = :tid AND peer_id = :pid");
-		$qry->bindParam(':tid', $tid, PDO::PARAM_INT);
-		$qry->bindParam(':pid', $pid, PDO::PARAM_STR);
-		$qry->execute();
-		$d = $qry->Fetch(PDO::FETCH_ASSOC);
-		return $d["lastaction"];
+		$sql = "SELECT UNIX_TIMESTAMP(last_action) AS lastaction FROM peers WHERE torrent = ? AND peer_id = ?";
+		$d = $this->con->query($sql, [$tid, $pid])
+								->toArray();
+		new Logging("_QUERY_",$this->con->getSQL());
+		return $d[0]["lastaction"];
 	}
 
 	public function getInterval($tid, $pid){
@@ -291,21 +305,32 @@ class nv
 	}
 
 	public function getPeerStats($tid, $pid){
-		$qry = $this->con->prepare("SELECT uploaded, downloaded FROM peers WHERE torrent = :tid AND peer_id = :pid");
-		$qry->bindParam(':tid', $tid, PDO::PARAM_INT);
-		$qry->bindParam(':pid', $pid, PDO::PARAM_STR);
-		$qry->execute();
-		$d = $qry->Fetch(PDO::FETCH_ASSOC);
-		return $d;
+		$d = $this->con->table('peers')
+						->select('uploaded, downloaded')
+						->where('torrent',$tid)
+						->where('peer_id',$pid)
+						->get()
+						->toArray();
+		new Logging("_QUERY_",$this->con->getSQL());
+		return $d[0];
 	}
 
 	public function GetPeers($tid, $rsize, $ownip){
-		$qry = $this->con->prepare("SELECT seeder, peer_id, ip, port FROM peers WHERE torrent = :tid AND connectable = 'yes' AND ip != :ownip ORDER BY RAND() LIMIT :limit");
-		$qry->bindParam(':tid', $tid, PDO::PARAM_STR);
-		$qry->bindParam(':limit', $rsize, PDO::PARAM_INT);
-		$qry->bindParam(':ownip', $ownip, PDO::PARAM_STR);
-		$qry->execute();
-		$data = $qry->FetchAll(PDO::FETCH_ASSOC);
+		//$sql = "SELECT seeder, peer_id, ip, port FROM peers WHERE torrent = ? AND connectable = 'yes' AND ip != ? ORDER BY RAND() LIMIT ?";
+		//$sql = "SELECT seeder, peer_id, ip, port FROM peers WHERE torrent = ? AND ip != ? ORDER BY RAND() LIMIT ?";
+		//$data = $this->con->query($sql, [$tid, '' . $ownip . '', $rsize])
+		//						->toArray();
+		$data = $this->con->table('peers')
+					->select('peer_id, ip, port, seeder')
+					->where('torrent',$tid)
+					->limit($rsize)
+					->get()
+					->toArray();
+		$logdata = var_export($data,true);
+		new Logging("_QUERY_","Query: " . $this->con->getSQL() . "\n" . 
+					"Vars: torrentid: " . $tid . ", ownip: " . $ownip . ", rsize: " . $rsize . "\n" .
+					"Result: " . $logdata
+					);
 		$r["seeders"] = 0;
 		$r["leechers"] = 0;
 		$r["peers"] = array();
@@ -335,16 +360,11 @@ class nv
 			$seeder = "yes";
 			$attach = "";
 		}
-		$sql = "UPDATE peers SET uploaded = :uploaded, downloaded = :downloaded, to_go = :left, last_action = NOW(), seeder = :new_seeder " . $attach . "WHERE torrent = :tid AND peer_id = :pid";
-		$qry = $this->con->prepare($sql);
-		$qry->bindParam(':uploaded', $uploaded, PDO::PARAM_INT);
-		$qry->bindParam(':downloaded', $downloaded, PDO::PARAM_INT);
-		$qry->bindParam(':left', $left, PDO::PARAM_INT);
-		$qry->bindParam(':new_seeder', $new_seeder, PDO::PARAM_STR);
-		$qry->bindParam(':tid', $torrent["id"], PDO::PARAM_INT);
-		$qry->bindParam(':pid', $peer_id, PDO::PARAM_STR);
-		$qry->execute();
-		if($qry->rowCount() && $seeder != $new_seeder){
+		$sql = "UPDATE peers SET uploaded = ?, downloaded = ?, to_go = ?, last_action = ?, seeder = ? " . $attach . "WHERE torrent = ? AND peer_id = ?";
+		$items = [$uploaded,$downloaded,$left,date("Y-m-d H:i:s"),$new_seeder,$torrent["id"],$peer_id];
+		$this->con->query($sql, $items);
+		new Logging("_QUERY_",$this->con->getSQL());
+		if($this->con->rowCount() && $seeder != $new_seeder){
 			if($new_seeder == "yes"){
 				$this->addSeeder($torrent["id"]);
 				$this->removeLeecher($torrent["id"]);
@@ -362,67 +382,72 @@ class nv
 			$dthis += $uthis;
 			$uthis = 0;
 		}
-		new Logging("_CLASSNV_","updatepeer() after fakecheck - Interval:" . $interval . " uthis: " . $uthis);
 		$this->updateTraffic($dthis,$uthis,$seeder,$interval,$user["id"],$torrent["id"]);
 	}
 
 	public function Completed($torrent_info, $user_info){
-		$qry = $this->con->prepare("UPDATE torrents SET times_completed = times_completed + 1 WHERE id = :tid");
-		$qry->bindParam(':tid', $torrentid, PDO::PARAM_INT);
-		$qry->execute();
-		if(!$qry->rowCount())
+		$this->con->update('torrents',['times_completed' => 'times_completed + 1'])
+										->where('id', $torrentid)
+										->exec();
+		new Logging("_QUERY_",$this->con->getSQL());
+		if(!$this->con->rowCount())
 			return false;
-		$qry = $this->con->prepare("INSERT INTO completed (user_id, torrent_id, torrent_name, torrent_category, complete_time) VALUES (:userid, :torrentid, :tname, :tcat, NOW())");
-		$qry->bindParam(':userid', $user_info["id"], PDO::PARAM_INT);
-		$qry->bindParam(':torrentid', $torrent_info["id"], PDO::PARAM_INT);
-		$qry->bindParam(':tname', $torrent_info["name"], PDO::PARAM_STR);
-		$qry->bindParam(':tcat', $torrent_info["category"], PDO::PARAM_STR);
-		$qry->execute();
-		if(!$qry->rowCount())
+		$this->con->insert('completed',
+								['user_id' => $user_info["id"],
+								'torrent_id' => $torrent_info["id"],
+								'torrent_name' => $torrent_info["name"],
+								'torrent_category' => $torrent_info["category"],
+								'complete_time' => date("Y-m-d H:i:s")
+							]);
+		new Logging("_QUERY_",$this->con->getSQL());
+		if(!$this->con->rowCount())
 			return false;
 		return true;
 	}
 
 	public function updateTraffic($download, $upload, $seeder, $interval, $userid, $torrentid){
-		if($seeder == "yes")
-			$qry = $this->con->prepare("UPDATE `traffic` SET `downloaded`=`downloaded`+:downthis, `uploaded`=`uploaded`+:upthis, `uploadtime`=`uploadtime`+:interval WHERE `userid`=:userid AND `torrentid`=:torrentid");
-		else
-			$qry = $this->con->prepare("UPDATE `traffic` SET `downloaded`=`downloaded`+:downthis, `uploaded`=`uploaded`+:upthis, `downloadtime`=`downloadtime`+:interval,`uploadtime`=`uploadtime`+:interval WHERE `userid`=:userid AND `torrentid`=:torrentid");
-		$qry->bindParam(':downthis', $download, PDO::PARAM_INT);
-		$qry->bindParam(':upthis', $upload, PDO::PARAM_INT);
-		$qry->bindParam(':interval', $interval, PDO::PARAM_INT);
-		$qry->bindParam(':userid', $userid, PDO::PARAM_INT);
-		$qry->bindParam(':torrentid', $torrentid, PDO::PARAM_INT);
-		$qry->execute();
+		if($seeder == "yes"){
+			$sql = "UPDATE `traffic` SET `downloaded`=`downloaded`+ ?, `uploaded`=`uploaded`+ ?, `uploadtime`=`uploadtime`+ ? WHERE `userid`= ? AND `torrentid`= ?";
+			$items = [$download,$upload,$interval,$userid,$torrentid];
+		}else{
+			$sql = "UPDATE `traffic` SET `downloaded`=`downloaded`+ ?, `uploaded`=`uploaded`+ ?, `downloadtime`=`downloadtime`+ ?,`uploadtime`=`uploadtime`+ ? WHERE `userid`= ? AND `torrentid`= ?";
+			$items = [$download,$upload,$interval,$interval,$userid,$torrentid];
+		}
 
+		$this->con->query($sql, $items);
+		new Logging("_QUERY_",$this->con->getSQL());
 //		if($this->isTorrentOnlyUpload($torrent["id"]) !== false)
 //			$download = 0;
-		$qry = $this->con->prepare("UPDATE users SET uploaded = uploaded + :upthis, downloaded = downloaded + :downthis WHERE id=:userid");
-		$qry->bindParam(':upthis', $upload, PDO::PARAM_INT);
-		$qry->bindParam(':downthis', $download, PDO::PARAM_INT);
-		$qry->bindParam(':userid', $userid, PDO::PARAM_INT);
-		$qry->execute();
+		$this->con->update('users',[
+									'uploaded' => 'uploaded + ' . $upload,
+									'downloaded' => 'downloaded + ' . $download
+									])
+								->where('id', $userid)
+								->exec();
+		new Logging("_QUERY_",$this->con->getSQL());
 	}
 
 	public function createTrafficLog($userid, $torrentid){
-		$qry = $this->con->prepare("SELECT * FROM `traffic` WHERE `userid`= :userid AND `torrentid`= :torrentid");
-		$qry->bindParam(':userid', $userid, PDO::PARAM_INT);
-		$qry->bindParam(':torrentid', $torrentid, PDO::PARAM_INT);
-		$qry->execute();
-		if(!$qry->rowCount()){
-			$qry = $this->con->prepare("INSERT INTO `traffic` (`userid`,`torrentid`) VALUES (:userid, :torrentid)");
-			$qry->bindParam(':userid', $userid, PDO::PARAM_INT);
-			$qry->bindParam(':torrentid', $torrentid, PDO::PARAM_INT);
-			$qry->execute();
+		$this->con->table('traffic')
+						->where('userid', $userid)
+						->where('torrentid', $torrentid)
+						->get();
+		new Logging("_QUERY_",$this->con->getSQL());
+		if(!$this->con->rowCount()){
+			$this->con->insert('traffic',
+									['userid' => $userid,
+									'torrentid' => $torrentid
+									]);
+			new Logging("_QUERY_",$this->con->getSQL());
 		}
 	}
 	
 	public function DeletePeer($torrentid, $ip, $left){
-		$qry = $this->con->prepare("DELETE FROM peers WHERE torrent = :tid AND ip = :ip LIMIT 1");
-		$qry->bindParam(':tid', $torrentid, PDO::PARAM_STR);
-		$qry->bindParam(':ip', $ip, PDO::PARAM_STR);
-		$qry->execute();
-		if($qry->rowCount()){
+		$this->con->delete('peers')
+				->where('torrent',$torrentid)
+				->where('ip',$ip)
+				->exec();
+		if($this->con->rowCount()){
 			if($left == 0)
 				$this->removeSeeder($torrentid);
 			else
@@ -433,33 +458,51 @@ class nv
 	}
 
 	public function insertStartLog($userid, $torrentid, $ip, $peer_id, $useragent){
-		$qry = $this->con->prepare("INSERT INTO startstoplog (userid,event,`datetime`,torrent,ip,peerid,useragent) VALUES (:uid,'start',NOW(),:tid,:ip,:peer_id,:useragent)");
-		$qry->bindParam(':uid', $userid, PDO::PARAM_INT);
-		$qry->bindParam(':tid', $torrentid, PDO::PARAM_INT);
-		$qry->bindParam(':ip', $ip, PDO::PARAM_STR);
-		$qry->bindParam(':peer_id', $peer_id, PDO::PARAM_STR);
-		$qry->bindParam(':useragent', $useragent, PDO::PARAM_STR);
-		$qry->execute();
+		$this->con->insert('startstoplog',
+									['userid' => $userid,
+									'event' => 'start',
+									'datetime' => date("Y-m-d H:i:s"),
+									'torrent' => $torrentid,
+									'ip' => $ip,
+									'peerid' => '' . $peer_id . '',
+									'useragent' => $useragent
+									]);
+		$logdata = var_export([$userid, $torrentid, $ip, $peer_id, $useragent], true);
+		new Logging("_QUERY_","Query: " . $this->con->getSQL() . "\n" .
+					"Result: " . $logdata .
+					"Lastid: " . $this->con->lastId()
+					);
 	}
 
 	public function insertStopLog($userid, $torrentid, $ip, $peer_id, $useragent){
-		$qry = $this->con->prepare("INSERT INTO startstoplog (userid,event,`datetime`,torrent,ip,peerid,useragent) VALUES (:uid,'stop',NOW(),:tid,:ip,:peer_id,:useragent)");
-		$qry->bindParam(':uid', $userid, PDO::PARAM_INT);
-		$qry->bindParam(':tid', $torrentid, PDO::PARAM_INT);
-		$qry->bindParam(':ip', $ip, PDO::PARAM_STR);
-		$qry->bindParam(':peer_id', $peer_id, PDO::PARAM_STR);
-		$qry->bindParam(':useragent', $useragent, PDO::PARAM_STR);
-		$qry->execute();
+		$this->con->insert('startstoplog',
+									['userid' => $userid,
+									'event' => 'stop',
+									'datetime' => date("Y-m-d H:i:s"),
+									'torrent' => $torrentid,
+									'ip' => $ip,
+									'peerid' => '' . $peer_id . '',
+									'useragent' => $useragent
+									]);
+		$logdata = var_export([$userid, $torrentid, $ip, $peer_id, $useragent], true);
+		new Logging("_QUERY_","Query: " . $this->con->getSQL() . "\n" .
+					"Result: " . $logdata .
+					"Lastid: " . $this->con->lastId()
+					);
 	}
 
 	// scrape
 	public function GetScrapeString($hash){
 		$hexhash = bin2hex($hash);
-		$qry = $this->con->prepare("SELECT times_completed, leechers, seeders FROM torrents WHERE info_hash = :hash LIMIT 1");
-		$qry->bindParam(':hash', $hexhash, PDO::PARAM_STR);
-		$qry->execute();
-		if($qry->rowCount())
-			$row = $qry->Fetch(PDO::FETCH_ASSOC);
+		$row = $this->con->table('torrents')
+					->select('times_completed, leechers, seeders')
+					->where('info_hash',$hexhash)
+					->limit(1)
+					->get()
+					->toArray();
+		new Logging("_QUERY_",$this->con->getSQL());
+		if($this->con->rowCount() == 1)
+			$row = $row[0];
 		else
 			return false;
 		$r = "d5:filesd20:".$hash."d8:completei".$row["seeders"]."e10:downloadedi".$row["times_completed"]."e10:incompletei".$row["leechers"]."eeee";
@@ -468,11 +511,11 @@ class nv
 
 	// functions
 	private function get_wait_time($userid, $torrentid, $only_wait_check = false, $left = -1){
-		$qry = $this->con->prepare("SELECT users.class, users.downloaded, users.uploaded, UNIX_TIMESTAMP(users.added) AS u_added, UNIX_TIMESTAMP(torrents.added) AS t_added, nowait.`status` AS `status` FROM users LEFT JOIN torrents ON torrents.id = :torrentid LEFT JOIN nowait ON nowait.user_id = :userid AND nowait.torrent_id = :torrentid WHERE users.id = :userid");
-		$qry->bindParam(':userid', $userid, PDO::PARAM_INT);
-		$qry->bindParam(':torrentid', $torrentid, PDO::PARAM_INT);
-		$qry->execute();
-		$arr = $qry->Fetch(PDO::FETCH_ASSOC);
+		$sql = "SELECT users.class, users.downloaded, users.uploaded, UNIX_TIMESTAMP(users.added) AS u_added, UNIX_TIMESTAMP(torrents.added) AS t_added, nowait.`status` AS `status` FROM users LEFT JOIN torrents ON torrents.id = ? LEFT JOIN nowait ON nowait.user_id = ? AND nowait.torrent_id = ? WHERE users.id = ?";
+		$arr = $this->con->query($sql, [$torrentid, $userid, $torrentid, $userid])
+								->toArray();
+		new Logging("_QUERY_",$this->con->getSQL());
+		$arr = $arr[0];
 		if(($arr["status"] != "granted" || ($arr["status"] == "granted" && $left > 0 && $this->pdonvtracker_conf_arr["config"]["NOWAITTIME_ONLYSEEDS"] == "yes")) && $arr["class"] < 5){
 			$gigs = $arr["uploaded"] / 1073741824;
 			$elapsed = floor((time() - $arr["t_added"]) / 3600);
@@ -519,11 +562,15 @@ class nv
 
 	private function IsConnectable($ip, $port){
 		if(isset($ip, $port) && !$this->portblacklisted($port)){
-            $sockres = @fsockopen($ip, $port, $errno, $errstr, 5);
+			$ipversion = strpos($ip, ":") === false ? 4 : 6;
+            if($ipversion == 4)
+				$sockres = fsockopen($ip, $port, $errno, $errstr, 5);
+			elseif($ipversion == 6)
+				$sockres = fsockopen('[' . $ip . ']', $port, $errno, $errstr, 5);
 			if(!$sockres)
 				return false;
 			else{
-				@fclose($sockres);
+				fclose($sockres);
 				return true;
 			}
 		}else
@@ -560,11 +607,7 @@ class nv
 	}
 	
 	public function fakefourzerofour(){
-		$page = "+-------------------------------------------------------------------------------+\n";
-		$page .= "| Redet der mit mir? Callt der mich etwa an? Will der mich ficken?              |\n";
-		$page .= "| Der labert tatsaechlich mit mir, der Pisser, was glaubt der eigentlich?       |\n";
-		$page .= "| Oder was wolltest Du Wichser? Was glaubst Du, wer Du bist, Du scheiss Wichser?|\n";
-		$page .= "+-------------------------------------------------------------------------------+\n";
+		$page = "Was willst Du hier?\n+\n+\n+\n+\n+\n";
 		return $page;
 	}
 
